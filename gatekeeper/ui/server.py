@@ -3,6 +3,7 @@
 Serves the dashboard UI and a small JSON API:
   GET  /                              -> static index.html
   GET  /api/version                   -> package version + repo URL
+  GET  /api/sidebar                   -> repos with grouped scan histories
   GET  /api/scans                     -> list of past scans
   GET  /api/scan/{id}/summary.json    -> unified findings for a scan
   GET  /api/scan/{id}/plan.md         -> AI directives text (REMEDIATION_PLAN.md)
@@ -128,6 +129,41 @@ def list_repos():
     return sorted(repos.values(), key=lambda r: r["last_scan"] or "", reverse=True)
 
 
+def sidebar_data(limit_per_repo=5):
+    """Sidebar payload: repositories grouped with their scan histories.
+
+    Returns a list of repos ordered by most recent activity, each carrying
+    its scans (newest first, capped at limit_per_repo) plus rollup counters.
+    Replaces the two-call /api/scans + /api/repos flow in the UI.
+    """
+    scans = list_scans()
+    groups = {}
+    for scan in scans:
+        t = scan.get("target")
+        if not t:
+            continue
+        g = groups.setdefault(t, {
+            "path": t,
+            "name": (t or "").rstrip("/\\").split("/")[-1] or t,
+            "scans": [],
+            "total_findings": 0,
+            "last_total": 0,
+            "last_scan_id": None,
+            "last_timestamp": None,
+        })
+        if len(g["scans"]) < limit_per_repo:
+            g["scans"].append(scan)
+        g["total_findings"] += scan["total"]
+    for g in groups.values():
+        newest = g["scans"][0] if g["scans"] else None
+        if newest:
+            g["last_scan_id"] = newest["id"]
+            g["last_timestamp"] = newest["timestamp"]
+            g["last_total"] = newest["total"]
+            g["last_counts"] = newest["counts"]
+    return sorted(groups.values(), key=lambda g: g["last_timestamp"] or "", reverse=True)
+
+
 def _safe_scan_file(scan_id, filename):
     """Map a logical name (plan.md) to the real file on disk."""
     FILE_MAP = {"plan.md": "REMEDIATION_PLAN.md"}
@@ -199,6 +235,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(_scan_state)
         elif path == "/api/repos":
             self._send_json(list_repos())
+        elif path == "/api/sidebar":
+            self._send_json(sidebar_data())
         elif (m := re.match(r"^/api/scan/([^/]+)/(summary\.json|plan\.md|REPORT\.html)$", path)):
             fname = m.group(2)
             fpath = _safe_scan_file(m.group(1), fname)

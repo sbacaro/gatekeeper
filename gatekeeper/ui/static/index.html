@@ -231,7 +231,7 @@
   .activity .item .lbl { color: var(--muted); font-size: 12px; }
   .activity .item .sub { color: var(--muted); font-size: 11px; }
 
-  /* repos list in sidebar */
+  /* repos list in sidebar: collapsible per-repository groups */
   .repo-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px;
                color: rgba(249,249,249,.72); font-size: 12.5px; cursor: pointer;
                text-decoration: none; margin-bottom: 1px; }
@@ -241,6 +241,39 @@
                     padding: 1px 7px; font-size: 11px; }
   .repo-item .rescan { opacity: .5; font-size: 11px; }
   .repo-item:hover .rescan { opacity: 1; color: var(--cyan); }
+
+  /* collapsible repo groups */
+  .repo-group { margin-bottom: 2px; }
+  .repo-head { display: flex; align-items: center; gap: 7px; padding: 7px 10px;
+               border-radius: 7px; color: rgba(249,249,249,.72); font-size: 12.5px;
+               cursor: pointer; user-select: none; }
+  .repo-head:hover { background: rgba(249,249,249,.07); color: #fff; }
+  .repo-head.active { background: rgba(101,81,243,.35); color: #fff; }
+  .repo-head .chev { width: 12px; height: 12px; opacity: .55; transition: transform .15s; flex-shrink: 0; }
+  .repo-group.open .repo-head .chev { transform: rotate(90deg); }
+  .repo-head .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap; }
+  .repo-head .badge { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .repo-head .badge .cnt { background: rgba(249,249,249,.14); border-radius: 10px;
+                           padding: 1px 7px; font-size: 11px; }
+  .repo-head .badge .sev-dots { display: flex; gap: 2px; }
+  .sev-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .sev-dot.critical { background: var(--critical); }
+  .sev-dot.high { background: var(--high); }
+  .sev-dot.medium { background: var(--medium); }
+  .sev-dot.low { background: var(--low); }
+  .repo-head .rescan { opacity: .5; font-size: 11px; }
+  .repo-head:hover .rescan { opacity: 1; color: var(--cyan); }
+  .repo-scans { display: none; padding-left: 14px; margin: 1px 0 4px; }
+  .repo-group.open .repo-scans { display: block; }
+  .scan-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+               border-radius: 6px; color: rgba(249,249,249,.55); font-size: 11.5px;
+               cursor: pointer; text-decoration: none; font-variant-numeric: tabular-nums; }
+  .scan-item:hover { background: rgba(249,249,249,.07); color: #fff; }
+  .scan-item.active { background: rgba(101,81,243,.35); color: #fff; }
+  .scan-item .when { color: rgba(249,249,249,.45); margin-right: 2px; }
+  .scan-item .tot { margin-left: auto; background: rgba(249,249,249,.12);
+                    border-radius: 9px; padding: 0 6px; font-size: 10.5px; }
 
   .tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
   .tab { padding: 10px 2px; color: var(--muted); font-weight: 500; cursor: pointer;
@@ -289,10 +322,14 @@
       <a href="#" onclick="document.getElementById('btn-browse').click(); return false">
         <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.8"/></svg>
         Browse folder</a>
+      <!-- Sidebar repository tree: one collapsible group per repository,
+           each with its scan history nested underneath. Single data source:
+           GET /api/sidebar (repos + grouped scans). -->
       <div class="nav-group">Repositories</div>
-      <div id="repo-list"></div>
-      <div class="nav-group">History</div>
-      <div id="scan-list" style="display:block"></div>
+      <div id="repo-tree"></div>
+      <div id="sidebar-empty" style="display:none;color:rgba(249,249,249,.4);font-size:12px;padding:6px 10px">
+        No scans yet - start one above.
+      </div>
     </nav>
     <div class="repo-tag">
       <div class="name" id="sb-target">No scan</div>
@@ -466,7 +503,7 @@
  * Sections (search for the banner comments):
  *   1. constants & helpers     - esc/locOf/toast
  *   2. progress polling        - renderProgress / pollProgress
- *   3. scans & repos loading   - loadScans/loadRepos/loadScan
+ *   3. sidebar (repo tree)     - loadSidebar/loadScan (repos with nested scans)
  *   4. rendering               - render/renderTable/riskPill
  *   5. row actions             - doAction (autofix, triage, GitHub)
  *   6. dialogs                 - ignore / severity override
@@ -568,45 +605,99 @@ function pollProgress() {
     .catch(() => { state.timer = setTimeout(pollProgress, 2500); });
 }
 
-// ----------------------------------------------------- 3. scans & repos loading ----
-// Sidebar content: previous scan ids (reports/ dir) and known repositories
-// (derived from .gatekeeper-state.json files the server has seen).
-async function loadScans() {
-  const scans = await (await fetch(`${API}/api/scans`)).json();
-  document.getElementById("scan-list").innerHTML = scans.slice(0, 12).map(s => `
-    <a href="#" data-id="${esc(s.id)}" style="display:block">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>${esc(s.id)}</span>
-      <span class="count">${s.total}</span>
-    </a>`).join("");
-  document.querySelectorAll("#scan-list a").forEach(a =>
-    a.addEventListener("click", e => { e.preventDefault(); loadScan(a.dataset.id); }));
+// ----------------------------------------------------- 3. sidebar (repo tree) ----
+// One collapsible group per repository, scans nested underneath, newest
+// first. Single fetch to /api/sidebar. Clicking a repo head toggles it and
+// loads its newest scan on first open; clicking a scan loads that exact
+// scan; the reload icon re-scans the repo without touching the tree state.
+function timeAgo(ts) {
+  if (!ts) return "";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 60000));
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  return days === 1 ? "yesterday" : `${days}d ago`;
 }
 
-async function loadRepos() {
-  const repos = await (await fetch(`${API}/api/repos`)).json();
-  document.getElementById("repo-list").innerHTML = repos.map(r => `
-    <div class="repo-item" data-path="${esc(r.path)}" data-last-scan="${esc(r.last_scan_id)}" title="${esc(r.path)}">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.6"/></svg>
-      <span>${esc(r.name)}</span>
-      <span class="cnt">${r.last_total}</span>
-      <span class="rescan" title="Rescan ${esc(r.name)}" data-rescan="${esc(r.path)}">⟳</span>
-    </div>`).join("");
-  document.querySelectorAll(".repo-item").forEach(el => {
-    el.addEventListener("click", e => {
+function sevDots(counts) {
+  // One dot per severity present in the newest scan, ordered worst-first.
+  return ["critical","high","medium","low"]
+    .filter(s => (counts[s] || 0) > 0)
+    .map(s => `<span class="sev-dot ${s}" title="${counts[s]} ${s}"></span>`)
+    .join("");
+}
+
+async function loadSidebar() {
+  const repos = await (await fetch(`${API}/api/sidebar`)).json();
+  const tree = document.getElementById("repo-tree");
+  document.getElementById("sidebar-empty").style.display =
+    repos.length ? "none" : "block";
+
+  tree.innerHTML = repos.map((r, i) => {
+    const scans = r.scans.map(s => `
+      <div class="scan-item" data-id="${esc(s.id)}" title="${esc(s.id)} - ${s.total} findings">
+        <span class="when">${esc(timeAgo(s.timestamp))}</span>
+        <span class="tot">${s.total}</span>
+      </div>`).join("");
+    return `
+    <div class="repo-group${i === 0 ? " open" : ""}" data-path="${esc(r.path)}">
+      <div class="repo-head" data-last-scan="${esc(r.last_scan_id || "")}" title="${esc(r.path)}">
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span class="name">${esc(r.name)}</span>
+        <span class="badge">
+          <span class="sev-dots">${sevDots(r.last_counts || {})}</span>
+          <span class="cnt">${r.last_total}</span>
+        </span>
+        <span class="rescan" title="Re-scan ${esc(r.name)} now" data-rescan="${esc(r.path)}">&#10227;</span>
+      </div>
+      <div class="repo-scans">${scans}</div>
+    </div>`;
+  }).join("");
+
+  tree.querySelectorAll(".repo-group").forEach(group => {
+    const head = group.querySelector(".repo-head");
+    head.addEventListener("click", e => {
       if (e.target.classList.contains("rescan")) {
         launch(e.target.dataset.rescan);
         return;
       }
-      // Clicking a repo loads its most recent scan (if one exists).
-      const last = el.dataset.lastScan;
-      if (last) loadScan(last);
+      // First open loads the newest scan; afterwards it just toggles.
+      const wasOpen = group.classList.contains("open");
+      group.classList.toggle("open");
+      if (!wasOpen && head.dataset.lastScan) loadScan(head.dataset.lastScan);
     });
   });
+  tree.querySelectorAll(".scan-item").forEach(item => {
+    item.addEventListener("click", e => {
+      e.stopPropagation();
+      loadScan(e.currentTarget.dataset.id);
+    });
+  });
+  highlightSidebar(state.scanId);
 }
-// Load a finished scan: fetch the grouped view (findings + triage state +
-// activity + config errors), then the AI plan text. Called both from the
-// sidebar history and right after a scan completes.
+
+function highlightSidebar(scanId) {
+  if (!scanId) return;
+  tree_query: {
+    document.querySelectorAll("#repo-tree .scan-item").forEach(el =>
+      el.classList.toggle("active", el.dataset.id === scanId));
+    // Keep the head of the active repo highlighted too.
+    document.querySelectorAll("#repo-tree .repo-head").forEach(head => {
+      const group = head.closest(".repo-group");
+      const active = group && group.querySelector(`.scan-item[data-id="${CSS.escape(scanId)}"]`);
+      head.classList.toggle("active", Boolean(active));
+    });
+    break tree_query;
+  }
+}
+
+// Back-compat shim: renderProgress() and doAction() refresh the sidebar via
+// loadScans(); keep that call working after the redesign.
+async function loadScans() { await loadSidebar(); }
+
 async function loadScan(scanId) {
   const view = await (await fetch(`${API}/api/scan/${scanId}/view`)).json();
   if (view.error) return;
@@ -614,8 +705,7 @@ async function loadScan(scanId) {
   state.target = view.target;
   state.scanId = scanId;
   state.grouped = true;
-  document.querySelectorAll("#scan-list a").forEach(a =>
-    a.classList.toggle("active", a.dataset.id === scanId));
+  highlightSidebar(scanId);
   document.getElementById("sb-target").textContent = short(view.target) || "No scan";
   document.getElementById("page-title").textContent = short(view.target) || "Issues";
   document.getElementById("results").style.display = "block";
@@ -966,7 +1056,6 @@ async function loadVersion() {
 }
 loadVersion();
 loadScans();
-loadRepos();
 </script>
 </body>
 </html>
