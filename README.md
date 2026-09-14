@@ -1,7 +1,7 @@
 # Gatekeeper
 
 [![CI](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 
 **Gatekeeper is a free, open-source alternative to Aikido Security and other
@@ -27,7 +27,7 @@ as a tool you own:
 | AI-executable fix plans / autofix | Yes (any coding agent) | Proprietary |
 | Create GitHub Issue / draft fix PR per finding | Yes | Yes |
 | SBOM (CycloneDX) on every scan | Yes | Paid tier |
-| Price | Free, MIT | Per-seat SaaS |
+| Price | Free, AGPL-3.0 | Per-seat SaaS |
 
 ## Scanners used
 
@@ -169,4 +169,6 @@ Found a vulnerability in Gatekeeper itself? See
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE) — free for personal, educational and internal use.
+Commercial redistribution as part of a paid product requires open-sourcing
+your changes under the same license (strong copyleft).
