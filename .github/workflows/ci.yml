@@ -45,8 +45,10 @@ jobs:
         # The sample app is intentionally vulnerable: exit code 1 means the
         # scanners worked and found HIGH findings. Anything else is a failure.
         run: |
+          set +e
           python bin/gatekeeper scan ./sample-vulnerable-app --tools semgrep,gitleaks,syft,grype --output /tmp/gk-reports
           code=$?
+          set -e
           if [ "$code" -eq 1 ]; then
             echo "Scan found HIGH findings as expected (exit 1)"
             exit 0
