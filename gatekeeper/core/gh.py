@@ -1,5 +1,5 @@
 """GitHub integration via the `gh` CLI: create an issue from a finding or
-open a fix PR (branch + commit) - Aikido-style 'real fix' actions.
+open a fix PR (branch + commit) - 'real fix' style actions.
 
 All commands run inside the scanned repository so gh picks up its remote.
 """

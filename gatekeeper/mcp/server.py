@@ -8,6 +8,10 @@ Copilot Workspace, ...):
   - gatekeeper_triage      ignore / snooze / solve / severity override
   - gatekeeper_verify      re-scan + diff against baseline, exit-code semantics
   - gatekeeper_plan        the AI remediation plan (REMEDIATION_PLAN.md)
+  - gatekeeper_fix         closed-loop SCA autofix (bump -> verify -> PR)
+  - gatekeeper_ci          diff-aware PR gate scan (SARIF summary)
+  - gatekeeper_sarif       SARIF 2.1.0 of the latest scan
+  - gatekeeper_policy      the effective repository policy (gatekeeper.yml)
 
 Run with:  gatekeeper mcp
 """
@@ -15,6 +19,7 @@ import json
 from pathlib import Path
 
 from gatekeeper.core import issues
+from gatekeeper.core.diffscan import diff_findings, restrict_to_changed
 from gatekeeper.core.runner import run_scan
 
 SERVER_INFO = {"name": "gatekeeper", "version": "1.0.0"}
@@ -100,6 +105,61 @@ TOOLS = [
         "name": "gatekeeper_plan",
         "description": "Return the AI remediation plan (REMEDIATION_PLAN.md) of "
                        "the latest scan, with pre-investigated context per finding.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gatekeeper_fix",
+        "description": "Closed-loop SCA autofix: bump vulnerable dependencies "
+                       "(npm/pnpm/yarn/requirements.txt), re-scan to confirm the "
+                       "CVEs are gone, and optionally open a draft PR via gh. "
+                       "Returns the per-package fix report.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "max": {"type": "integer",
+                        "description": "Max dependency bumps per run (default 20)"},
+                "open_pr": {"type": "boolean",
+                            "description": "Open a draft PR (default true)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gatekeeper_ci",
+        "description": "Diff-aware PR gate: scan, keep only findings introduced "
+                       "by the change vs the baseline, and apply the repository "
+                       "policy (gatekeeper.yml). Returns the verdict and the "
+                       "list of blocking findings.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "base": {"type": "string",
+                         "description": "Git ref to diff against (default origin/main)"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gatekeeper_sarif",
+        "description": "Return the SARIF 2.1.0 report of the latest scan "
+                       "(or run a scan first when none exists).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "gatekeeper_policy",
+        "description": "Return the effective repository policy: gatekeeper.yml "
+                       "merged over defaults (thresholds, ignored paths/findings, "
+                       "notification channels).",
         "inputSchema": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -222,6 +282,82 @@ def tool_plan(args: dict) -> dict:
     return {"plan": plan}
 
 
+def tool_fix(args: dict) -> dict:
+    from gatekeeper.core import autofix
+    target = Path(args["path"]).expanduser().resolve()
+    result, scan_dir = run_scan(target, progress_cb=lambda *a, **k: None)
+    summary = result.to_dict()
+    report = autofix.apply_fixes(str(target), summary,
+                                 max_fixes=int(args.get("max") or 20))
+    if report["applied"]:
+        result, scan_dir = run_scan(target, progress_cb=lambda *a, **k: None)
+        summary = result.to_dict()
+    blocking = [f for f in summary["findings"]
+                if f["severity"] in ("CRITICAL", "HIGH")]
+    return {
+        "scan_id": scan_dir.name,
+        "reports_dir": str(scan_dir),
+        "applied": report["applied"],
+        "failed": report["failed"],
+        "note": "PR creation is available via the CLI (`gatekeeper fix`); "
+                "commit and push the manifest changes, then re-run "
+                "gatekeeper_verify to confirm.",
+        "remaining_high_or_critical": len(blocking),
+    }
+
+
+def tool_ci(args: dict) -> dict:
+    from gatekeeper.core import config as config_mod
+    from gatekeeper.core.cli import _git_changed_files, _load_latest_baseline
+    target = Path(args["path"]).expanduser().resolve()
+    base = args.get("base") or "origin/main"
+    cfg = config_mod.load_config(target)
+    baseline, _ = _load_latest_baseline(target, None)
+    result, scan_dir = run_scan(target, progress_cb=lambda *a, **k: None)
+    current = [f.to_dict() for f in result.findings]
+    changed_files = _git_changed_files(target, base)
+    if baseline is None:
+        reportable = current
+    else:
+        d = diff_findings(baseline, current)
+        reportable = restrict_to_changed(d["new"], changed_files)
+    blocking = config_mod.failing_findings(reportable, cfg)
+    return {
+        "base": base,
+        "changed_files": len(changed_files),
+        "new_findings": len(reportable),
+        "blocking": [{
+            "severity": f.get("severity"), "title": f.get("title"),
+            "file": f.get("file"), "line": f.get("line"),
+            "risk_score": f.get("risk_score"),
+        } for f in blocking],
+        "policy": {"fail_on": cfg.get("fail_on"),
+                   "min_risk_score": cfg.get("min_risk_score")},
+        "verdict": "FAILED" if blocking else "PASSED",
+    }
+
+
+def tool_sarif(args: dict) -> dict:
+    from gatekeeper.core.cli import _load_latest_baseline
+    from gatekeeper.core.sarif import sarif_report
+    target = str(Path(args["path"]).expanduser().resolve())
+    baseline, _ = _load_latest_baseline(Path(target), None)
+    if baseline is not None:
+        return {"sarif": sarif_report(baseline)}
+    result, _ = run_scan(target, progress_cb=lambda *a, **k: None)
+    return {"sarif": sarif_report(result.to_dict())}
+
+
+def tool_policy(args: dict) -> dict:
+    from gatekeeper.core import config as config_mod
+    target = Path(args["path"]).expanduser().resolve()
+    cfg = config_mod.load_config(target)
+    config_file = next((target / n for n in config_mod.CONFIG_NAMES
+                        if (target / n).is_file()), None)
+    return {"config_file": str(config_file) if config_file else None,
+            "policy": config_mod.to_jsonable(cfg)}
+
+
 TOOL_HANDLERS = {
     "gatekeeper_scan": tool_scan,
     "gatekeeper_list": tool_list,
@@ -229,6 +365,10 @@ TOOL_HANDLERS = {
     "gatekeeper_triage": tool_triage,
     "gatekeeper_verify": tool_verify,
     "gatekeeper_plan": tool_plan,
+    "gatekeeper_fix": tool_fix,
+    "gatekeeper_ci": tool_ci,
+    "gatekeeper_sarif": tool_sarif,
+    "gatekeeper_policy": tool_policy,
 }
 
 

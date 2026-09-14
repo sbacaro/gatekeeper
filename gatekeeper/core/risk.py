@@ -1,4 +1,4 @@
-"""Risk scoring, CWE and OWASP mapping - the Aikido-parity intelligence layer.
+"""Risk scoring, CWE and OWASP mapping - the platform-parity intelligence layer.
 
 risk_score (0-100) is computed from:
   - severity (dominant factor)

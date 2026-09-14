@@ -49,11 +49,12 @@ def restrict_to_changed(findings: list, changed_files: list) -> list:
     changed = set(changed_files)
     out = []
     for f in findings:
-        file = (f.get("file") or "").replace("\\", "/")
+        file = (f.get("file") or "").replace("\\", "/").lstrip("./")
         # SCA findings report lockfile paths; keep them if any changed file
-        # is a dependency manifest in the same directory.
+        # is a dependency manifest in the same directory (root included).
         base = file.rsplit("/", 1)[0] if "/" in file else ""
         if file in changed or (f.get("category") == "sca" and
-                               any(cf.rsplit("/", 1)[0] == base for cf in changed)):
+                               any((cf.rsplit("/", 1)[0] if "/" in cf else "")
+                                   == base for cf in changed)):
             out.append(f)
     return out

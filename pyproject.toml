@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gatekeeper-security"
-version = "1.1.0"
+version = "1.2.0"
 description = "Free (noncommercial) alternative to commercial AppSec platforms: unified SAST, SCA, secrets, IaC and DAST scanning with risk scoring and AI-executable remediation plans."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -54,3 +54,7 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

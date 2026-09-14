@@ -18,7 +18,7 @@ class Finding:
     description: str
     remediation_hint: str
     fingerprint: str = ""
-    # --- enriched metadata (Aikido-parity) ---
+    # --- enriched metadata (platform-parity) ---
     cvss: float | None = None          # CVSS v3 base score when available
     cwe: str = ""                      # e.g. "CWE-79"
     owasp: str = ""                    # e.g. "A03:2021 - Injection"

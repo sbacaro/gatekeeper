@@ -1,0 +1,34 @@
+# Gatekeeper repository policy (copy to your project root as gatekeeper.yml).
+# All keys are optional; anything omitted falls back to the defaults shown.
+
+# Severity that flips exit code 1 on scan/verify/ci: info|low|medium|high|critical
+fail_on: high
+
+# Alternative/complementary gate: any finding with risk_score >= N fails.
+# min_risk_score: 80
+
+# Restrict the tool set (default: auto-selected by detected stack).
+# tools: [semgrep, trivy, gitleaks]
+
+# Findings under these path prefixes are never reported.
+ignore_paths:
+  - tests/fixtures/
+  - vendor/
+
+# Suppress individual findings - by exact title or by fingerprint prefix.
+# Each suppression should carry a reason for the audit trail.
+ignore:
+  - title: "Hardcoded JWT secret in test fixture"
+    reason: "test fixture, not a real credential"
+  - fingerprint: "semgrep:secrets:config/settings.py:42"
+    reason: "example placeholder documented in SECURITY.md"
+
+# Notify a Slack channel and/or a generic webhook on FAILED gates.
+# notifications:
+#   slack: https://hooks.slack.com/services/T000/B000/xxxx
+#   webhook: https://ci.example.com/hooks/gatekeeper
+#   min_severity: high        # only include findings >= this severity
+#   on_pass: false            # also notify when the gate passes
+
+# Probe leaked credentials against provider APIs (generates audit events).
+# validate_secrets: true

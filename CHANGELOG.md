@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-14
+
+### Added
+- Repository policy file (`gatekeeper.yml`): per-repo tool selection, secret
+  validation toggle and notification settings, loaded automatically from the
+  scanned project or via `--config`. See `gatekeeper.example.yml`.
+- Notifications on `gatekeeper verify`: webhook (Slack-compatible) and
+  generic HTTP endpoint, configured in `gatekeeper.yml`.
+- MCP server expansion: `gatekeeper_plan`, `gatekeeper_verify` and diff-aware
+  triage tools for coding agents.
+- Unit test suite (128 tests, no scanners required) wired into CI across
+  Python 3.9/3.12/3.13.
+- UI: centered main content, topbar action buttons pinned right, blue design
+  system, footer with version from the API.
+
+### Changed
+- Documentation no longer references specific commercial product names.
+
 ## [1.1.0] - 2026-09-14
 
 ### Added

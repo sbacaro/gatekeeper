@@ -4,8 +4,7 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm--NC-orange.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 
-**Gatekeeper is a free alternative to Aikido Security and other commercial
-AppSec platforms.** One command runs the best open-source scanners, merges
+**Gatekeeper is a free alternative to commercial AppSec platforms.** One command runs the best open-source scanners, merges
 their findings into a single risk-scored report, and generates an
 AI-executable remediation plan that coding agents (Cursor, Claude Code, Copilot
 Workspace) can apply directly - then verifies the fixes.
@@ -19,7 +18,7 @@ open-source scanners underneath. Gatekeeper gives you that orchestration plus
 the workflow around it - triage, risk scoring, AI remediation, verification -
 as a tool you own:
 
-| Capability | Gatekeeper | Aikido & co. |
+| Capability | Gatekeeper | The $30/dev/month platforms |
 |---|---|---|
 | SAST + SCA + secrets + IaC + DAST in one report | Yes | Yes |
 | Risk scoring (0-100), CVSS/CWE/OWASP mapping | Yes | Yes |
@@ -166,6 +165,30 @@ re-scans to confirm the CVEs are gone, and opens a draft PR via `gh`:
 ./bin/gatekeeper fix ./sample-vulnerable-app --no-pr  # local bumps only
 ```
 
+### Policy as code (`gatekeeper.yml`)
+
+Drop a `gatekeeper.yml` in the repository root (see
+[gatekeeper.example.yml](gatekeeper.example.yml)) to version your security
+policy next to the code. Every command - `scan`, `verify`, `ci` - reads it:
+
+```yaml
+fail_on: high                # exit 1 when findings >= HIGH (or: critical|medium|low)
+min_risk_score: 80           # ...or when any finding scores >= 80
+tools: [semgrep, trivy, gitleaks]
+ignore_paths:
+  - tests/fixtures/
+ignore:
+  - title: "Hardcoded JWT secret"        # exact title, with audit reason
+    reason: "test fixture, not a real credential"
+notifications:
+  slack: https://hooks.slack.com/services/...   # Slack + generic webhooks
+  webhook: https://ci.example.com/hook
+  min_severity: high
+```
+
+CLI flags override the file (`--tools`, `--validate-secrets`), and
+`--config path/to/gatekeeper.yml` points at an explicit policy file.
+
 ### MCP server for coding agents
 
 Gatekeeper ships a built-in MCP (Model Context Protocol) server, so agents
@@ -181,7 +204,8 @@ like Cursor can *operate* Gatekeeper natively instead of reading a plan file:
 ```
 
 Tools exposed: `gatekeeper_scan`, `gatekeeper_list`, `gatekeeper_finding`,
-`gatekeeper_triage`, `gatekeeper_verify`, `gatekeeper_plan`.
+`gatekeeper_triage`, `gatekeeper_verify`, `gatekeeper_plan`, `gatekeeper_fix`,
+`gatekeeper_ci`, `gatekeeper_sarif`, `gatekeeper_policy`.
 
 ### SARIF output
 
@@ -281,6 +305,17 @@ intel fall back to keyword-based exploitability heuristics.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and feature requests are
 welcome via [Issues](https://github.com/sbacaro/gatekeeper/issues).
+
+### Development
+
+```bash
+pip install pytest
+python -m pytest tests/ -v   # unit tests (no scanners required)
+ruff check gatekeeper/ bin/ tests/
+```
+
+The test suite is pure-unit: scanner runs, subprocesses and network calls are
+mocked, so it runs in well under a second without any scanner installed.
 
 ## Security
 

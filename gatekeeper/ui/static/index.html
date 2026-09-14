@@ -17,44 +17,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gatekeeper</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z' fill='%236551f3'/%3E%3Cpath d='M9 11.5l2.2 2.2L15.5 9' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z' fill='%232563eb'/%3E%3Cpath d='M9 11.5l2.2 2.2L15.5 9' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 <style>
-  /* Aikido-inspired design system. Light theme is the default; dark theme
+  /* Design system inspired by commercial AppSec dashboards (at a fraction of
+     their per-seat price). Light theme is the default; dark theme
      only re-maps the variables - no rule may use a raw color value. Toggled
      by the moon/sun button in the topbar, persisted in localStorage. */
   :root {
-    --bg: #f9f9f9; --card: #ffffff; --border: #e5e5e9; --border2: #ececef;
-    --text: #1a1a2e; --muted: #73727f; --accent: #6551f3; --accent-hover: #5443d9;
+    --bg: #f7f9fc; --card: #ffffff; --border: #e2e8f0; --border2: #eaeff5;
+    --text: #16233a; --muted: #64748b; --accent: #2563eb; --accent-hover: #1d4ed8;
     --on-accent: #ffffff;
     --critical: #e5484d; --high: #f76b15; --medium: #ffb224;
     --low: #3b82f6; --info: #8f8fa3; --ok: #30a46c;
-    --sidebar-bg: #141031; --cyan: #17dfdc; --cyan-dim: rgba(23,223,220,.16);
-    --input-bg: #f4f4f6; --hover-bg: #fafafa; --row-border: #f4f4f6;
-    --chip-bg: #f1f1f4; --chip-border: #ececef; --shadow: rgba(20,16,49,.08);
-    --backdrop: rgba(20,16,49,.35);
+    --sidebar-bg: #0f1e3d; --cyan: #38bdf8; --cyan-dim: rgba(56,189,248,.16);
+    --input-bg: #f1f5f9; --hover-bg: #f8fafc; --row-border: #f1f5f9;
+    --chip-bg: #eef2f8; --chip-border: #e2e8f0; --shadow: rgba(15,30,61,.08);
+    --backdrop: rgba(15,30,61,.35);
     --risk-medium-text: #4a3200; --risk-empty-bg: #d5d5dc;
     --st-pending: #d5d5dc; --st-check: #ffffff;
     --ok-chip-bg: #e8f7ef; --ok-chip-border: #b5e3cc; --ok-chip-text: #1d7a4c;
     --cfg-bg: #fff8eb; --cfg-border: #f5dfaa; --cfg-title: #935f10;
     --gh: #24292f;
-    --snippet-bg: #16162a; --snippet-fg: #e8e8f2;
+    --snippet-bg: #101c33; --snippet-fg: #e8eef6;
     --side-fg: #f9f9f9; --side-fg-strong: #ffffff;
     --side-fg-dim: rgba(249,249,249,.72); --side-fg-mid: rgba(249,249,249,.5);
     --side-fg-faint: rgba(249,249,249,.4);
-    --side-hover: rgba(249,249,249,.07); --side-active: rgba(101,81,243,.35);
+    --side-hover: rgba(249,249,249,.07); --side-active: rgba(37,99,235,.35);
     --side-chip: rgba(249,249,249,.14); --side-input: rgba(249,249,249,.08);
     --side-border: rgba(249,249,249,.08);
     color-scheme: light;
   }
   html[data-theme="dark"] {
-    --bg: #12121f; --card: #1b1b2c; --border: #2c2c40; --border2: #262637;
-    --text: #e8e8f2; --muted: #9494a8;
+    --bg: #0d1526; --card: #14203a; --border: #263450; --border2: #202c46;
+    --text: #e6edf7; --muted: #8fa0b8;
     --low: #60a5fa; --info: #7c7c95;
-    --input-bg: #1d1d30; --hover-bg: #1e1e30; --row-border: #22223a;
-    --sidebar-bg: #0d0d1a;
-    --chip-bg: #26263a; --chip-border: #32324a;
-    --risk-medium-text: #241a00; --risk-empty-bg: #3a3a50;
-    --st-pending: #3a3a50;
+    --input-bg: #182642; --hover-bg: #17233d; --row-border: #1b2947;
+    --sidebar-bg: #0a1224;
+    --chip-bg: #1e2c4a; --chip-border: #2a3a5c;
+    --risk-medium-text: #241a00; --risk-empty-bg: #3a4a66;
+    --st-pending: #3a4a66;
     --ok-chip-bg: #1d3a28; --ok-chip-border: #2c5a3f; --ok-chip-text: #58c98d;
     --cfg-bg: #2a2313; --cfg-border: #57430f; --cfg-title: #e0a84f;
     --gh: #c9d1d9;
@@ -67,7 +68,7 @@
   button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: 13px; }
   input, select { font-family: inherit; font-size: 13px; color: var(--text); }
 
-  /* ============ sidebar (dark, like Aikido) ============ */
+  /* ============ sidebar (dark, app-style) ============ */
   .app { display: flex; min-height: 100vh; }
   .sidebar { width: 232px; background: var(--sidebar-bg); color: var(--side-fg);
              display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
@@ -97,6 +98,7 @@
             padding: 0 28px; height: 54px; display: flex; align-items: center; gap: 10px; }
   .topbar h1 { font-size: 15px; font-weight: 600; margin-right: 8px; }
   .topbar .divider { width: 1px; height: 22px; background: var(--border); }
+  .topbar .actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .search { background: var(--input-bg); border: 1px solid transparent; border-radius: 8px;
             padding: 7px 14px; width: 240px; font-size: 13px; }
   .search:focus { outline: none; background: var(--card); border-color: var(--accent); }
@@ -107,7 +109,7 @@
   .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   .btn.primary:hover { background: var(--accent-hover); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .content { padding: 24px 28px; max-width: 1280px; }
+  .content { padding: 24px 28px; max-width: 1280px; margin: 0 auto; width: 100%; }
 
   /* stats strip */
   .stats { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -398,17 +400,19 @@
       <h1 id="page-title">Issues</h1>
       <div class="divider"></div>
       <input class="search" id="search" placeholder="Search issues...">
-      <button class="btn" id="btn-copy">Copy fix plan</button>
-      <button class="btn" id="btn-md">Download .md</button>
-      <button class="btn" id="btn-report">Full report</button>
       <button class="btn primary" id="btn-rescan" disabled title="Run the same scan again on this repository">
         <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px"><path d="M20 12a8 8 0 11-2.34-5.66M20 4v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Re-scan</button>
-      <button class="btn" id="btn-csv" disabled title="Export the filtered issue list to CSV">Export CSV</button>
-      <button class="btn" id="btn-theme" title="Toggle dark mode" style="padding:7px 9px">
-        <svg id="theme-moon" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <svg id="theme-sun" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;display:none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
+      <div class="actions">
+        <button class="btn" id="btn-copy">Copy fix plan</button>
+        <button class="btn" id="btn-md">Download .md</button>
+        <button class="btn" id="btn-report">Full report</button>
+        <button class="btn" id="btn-csv" disabled title="Export the filtered issue list to CSV">Export CSV</button>
+        <button class="btn" id="btn-theme" title="Toggle dark mode" style="padding:7px 9px">
+          <svg id="theme-moon" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <svg id="theme-sun" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;display:none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="content">
@@ -822,7 +826,7 @@ function render() {
   const v = state.view;
   const findings = visibleFindings();
 
-  // severity stats (open issues only, Aikido-style)
+  // severity stats (open issues only, commercial-platform-style)
   const counts = Object.fromEntries(SEV.map(x => [x, 0]));
   let open = 0;
   for (const f of findings) {

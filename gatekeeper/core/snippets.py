@@ -1,5 +1,5 @@
 """Extract source-code snippets around findings so the UI can show the
-flagged code inline (Aikido-style), without bloating raw scan output."""
+flagged code inline, without bloating raw scan output."""
 from pathlib import Path
 
 from gatekeeper.core.detect import SKIP_DIRS

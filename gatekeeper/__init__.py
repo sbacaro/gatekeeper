@@ -10,4 +10,4 @@ separate license from the author.
 See https://polyformproject.org/licenses/noncommercial/1.0.0
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

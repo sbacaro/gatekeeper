@@ -1,5 +1,5 @@
 """Persistent per-repository issue state, grouped issues, fix-time estimates
-and configuration error checks - the Aikido-parity layer.
+and configuration error checks - the commercial-platform-parity layer.
 
 State lives in <repo>/.gatekeeper-state.json so it survives across scans and
 machine restarts.
@@ -105,7 +105,7 @@ def annotate_findings(target, findings: list) -> list:
     """Attach persistent status to each finding:
     status: open | ignored | snoozed | solved | new
     plus severity_override and solved/auto_solved bookkeeping.
-    Mirrors the scan flow of Aikido: disappeared issues become auto-solved.
+    Mirrors the scan flow of commercial platforms: disappeared issues become auto-solved.
     """
     state = load_state(target)
     issues = state["issues"]
@@ -139,7 +139,7 @@ def annotate_findings(target, findings: list) -> list:
         item["solved_at"] = entry.get("solved_at")
         out.append(item)
 
-    # Issues known in state but absent now -> auto solved (like Aikido).
+    # Issues known in state but absent now -> auto solved (like the big platforms).
     for key, entry in issues.items():
         if key in seen_keys:
             continue
@@ -173,7 +173,7 @@ def sync_seen(target, annotated: list):
 
 
 def activity_stats(target, annotated: list) -> dict:
-    """New / solved / ignored counts within the last 7 days (Aikido strip)."""
+    """New / solved / ignored counts within the last 7 days (dashboard activity strip)."""
     now = time.time()
     week = 7 * 86400
     state = load_state(target)
@@ -217,8 +217,8 @@ def _group_key(f: dict):
 
 
 def group_findings(annotated: list) -> list:
-    """Collapse issues the way Aikido does: CVEs of the same package count as
-    one group; the same secret across N files is one group."""
+    """Collapse issues the way leading AppSec platforms do: CVEs of the same
+    package count as one group; the same secret across N files is one group."""
     groups = {}
     order = []
     for f in annotated:
@@ -258,7 +258,7 @@ def _sev_rank(sev):
 # ------------------------------------------------------------ fix time -----
 
 def estimate_fix_time(f: dict) -> str:
-    """Rough human estimate of fix effort, Aikido-style."""
+    """Rough human estimate of fix effort."""
     cat = f.get("category")
     sev = f.get("severity")
     if cat == "secrets":
@@ -286,7 +286,7 @@ def estimate_fix_time(f: dict) -> str:
 
 def config_errors(target) -> list:
     """Cheap heuristics for repository-level configuration problems
-    (Aikido shows these separately from code issues)."""
+    (shown separately from code issues)."""
     target = Path(target)
     errors = []
 

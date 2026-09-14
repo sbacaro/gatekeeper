@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from gatekeeper.core import config as config_mod
 from gatekeeper.core.diffscan import diff_findings, load_baseline, restrict_to_changed
 from gatekeeper.core.runner import GATEKEEPER_ROOT, run_scan
 from gatekeeper.core.sarif import sarif_report
@@ -16,6 +17,8 @@ def parse_args(argv):
 
     def common(p):
         p.add_argument("path", help="Target project directory")
+        p.add_argument("--config", default=None,
+                       help="Path to gatekeeper.yml (default: <target>/gatekeeper.yml)")
         p.add_argument("--dast", default=None, help="URL to DAST-scan with OWASP ZAP")
         p.add_argument("--tools", default=None,
                        help="Comma-separated tool list (default: auto by stack)")
@@ -37,6 +40,7 @@ def parse_args(argv):
                       help="Where to write the SARIF file (default: ./gatekeeper.sarif)")
     p_sarif = sub.add_parser("sarif", help="Print the SARIF of the latest scan to stdout")
     p_sarif.add_argument("path", help="Target project directory")
+    p_sarif.add_argument("--config", default=None)
     p_sarif.add_argument("--baseline", default=None,
                          help="Path to a previous summary.json to convert instead")
     p_sarif.add_argument("--tools", default=None)
@@ -77,13 +81,31 @@ def _print_progress(event, **kw):
               f"MEDIUM={counts.get('MEDIUM', 0)} LOW={counts.get('LOW', 0)})")
         print(f"Reports saved to: {kw['scan_dir']}")
         print(f"AI directives file: {kw['scan_dir'] / 'REMEDIATION_PLAN.md'}")
+    elif event == "notify":
+        status = "ok" if kw["ok"] else f"FAILED ({kw['detail']})"
+        print(f"   notification -> {kw['channel']}: {status}")
 
 
-def _run_scan(args):
+def load_policy(args):
+    """Load the repository policy (gatekeeper.yml) with CLI overrides applied."""
+    cfg = config_mod.load_config(getattr(args, "path", None),
+                                 path=getattr(args, "config", None))
+    if getattr(args, "tools", None):
+        cfg["tools"] = args.tools
+    if getattr(args, "validate_secrets", False):
+        cfg["validate_secrets"] = True
+    return cfg
+
+
+def _run_scan(args, config=None):
+    config = config or {}
     try:
-        return run_scan(args.path, tools=args.tools, dast_url=args.dast,
+        return run_scan(args.path,
+                        tools=args.tools or config.get("tools"),
+                        dast_url=args.dast,
                         out_root=args.output, progress_cb=_print_progress,
-                        validate_secrets=getattr(args, "validate_secrets", False))
+                        validate_secrets=getattr(args, "validate_secrets", False)
+                        or bool(config.get("validate_secrets")))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(2)
@@ -124,21 +146,37 @@ def _diff_findings(baseline_findings, new_findings):
     return new, fixed, remaining
 
 
+def _notify(target, verdict, findings, config):
+    if not (config.get("notifications") or {}):
+        return
+    from gatekeeper.core import notify
+    report = notify.notify_scan_result(str(target), verdict, findings, config,
+                                       progress=_print_progress)
+    if not report:
+        return
+    print("Notifications:" if verdict == "FAILED" else "")
+    if verdict == "PASSED":
+        for ch, r in report.items():
+            print(f"   {ch}: {'ok' if r['ok'] else r['detail']}")
+
+
 def cmd_verify(args):
     target = Path(args.path).expanduser().resolve()
+    config = load_policy(args)
     baseline, baseline_dir = _load_latest_baseline(target, args.baseline)
 
-    result, scan_dir = _run_scan(args)
+    result, scan_dir = _run_scan(args, config)
+
+    findings = [f.to_dict() for f in result.findings]
 
     if baseline_dir is not None:
         baseline_dir = Path(baseline_dir).resolve()
     if baseline is None or baseline_dir == scan_dir.resolve():
         print("\nNo previous scan found for this target - verification baseline created.")
         print("Tip: this scan IS the baseline. Apply the remediation plan, then run verify again.")
-        return _exit_code([f.to_dict() for f in result.findings])
+        return _exit_code(findings, config, target)
 
-    new, fixed, remaining = _diff_findings(baseline.get("findings", []),
-                                           [f.to_dict() for f in result.findings])
+    new, fixed, remaining = _diff_findings(baseline.get("findings", []), findings)
 
     print("\n=== Verification ===")
     print(f"Baseline: {baseline_dir.name}  ->  Current: {scan_dir.name}")
@@ -152,13 +190,18 @@ def cmd_verify(args):
     for f in remaining:
         print(f"    [OPEN]     [{f['severity']}] {f['title']} ({f.get('file', 'n/a')})")
 
-    blocking = [f for f in new + remaining if f["severity"] in ("CRITICAL", "HIGH")]
+    blocking = config_mod.failing_findings(new + remaining, config)
     if blocking:
-        print(f"\nVERIFY FAILED: {len(blocking)} HIGH/CRITICAL finding(s) still open.")
+        print(f"\nVERIFY FAILED: {len(blocking)} finding(s) at or above the policy "
+              f"threshold (fail_on={config.get('fail_on')}, "
+              f"min_risk_score={config.get('min_risk_score') or 'off'}) still open.")
         print("Continue with the remediation plan and run verify again.")
+        _notify(target, "FAILED", blocking, config)
     else:
-        print("\nVERIFY PASSED: no HIGH/CRITICAL findings remain.")
-    return _exit_code(new + remaining)
+        print("\nVERIFY PASSED: no findings above the policy threshold remain.")
+        _notify(target, "PASSED", [], config)
+    return _exit_code(new + remaining, config, target, notify_cfg=config,
+                      blocking=blocking)
 
 
 def _git_changed_files(target: Path, base_ref: str) -> list:
@@ -183,10 +226,11 @@ def cmd_ci(args):
     """PR gate: full scan, then keep only findings introduced by this change.
 
     Emits a SARIF file ready for upload to GitHub Code Scanning and fails the
-    build when NEW HIGH/CRITICAL findings are present (pre-existing debt does
+    build when NEW findings violate the policy (pre-existing debt does
     not block - that is what `verify` is for).
     """
     target = Path(args.path).expanduser().resolve()
+    config = load_policy(args)
 
     baseline_path = args.baseline
     baseline = load_baseline(baseline_path) if baseline_path else None
@@ -195,7 +239,7 @@ def cmd_ci(args):
         if baseline_dir:
             baseline = load_baseline(Path(baseline_dir) / "summary.json")
 
-    result, scan_dir = _run_scan(args)
+    result, scan_dir = _run_scan(args, config)
     current = [f.to_dict() for f in result.findings]
     changed_files = _git_changed_files(target, args.base)
 
@@ -212,6 +256,8 @@ def cmd_ci(args):
         for f in reportable:
             print(f"    [NEW] [{f['severity']}] {f['title']} ({f.get('file', 'n/a')})")
 
+    blocking = config_mod.failing_findings(reportable, config)
+
     sarif_path = Path(args.sarif_out)
     sarif_path.write_text(json.dumps(
         sarif_report({**result.to_dict(), "findings": reportable}), indent=2))
@@ -221,11 +267,13 @@ def cmd_ci(args):
           "-f ref=refs/heads/<branch> -f commit_sha=$GITHUB_SHA "
           f"-f sarif=@{sarif_path}")
 
-    blocking = [f for f in reportable if f["severity"] in ("CRITICAL", "HIGH")]
     if blocking:
-        print(f"\nCI FAILED: {len(blocking)} new HIGH/CRITICAL finding(s) in this change.")
+        print(f"\nCI FAILED: {len(blocking)} new finding(s) at or above the policy "
+              f"threshold (fail_on={config.get('fail_on')}) in this change.")
+        _notify(target, "FAILED", blocking, config)
         return 1
-    print("\nCI PASSED: no new HIGH/CRITICAL findings in this change.")
+    print("\nCI PASSED: no new findings above the policy threshold in this change.")
+    _notify(target, "PASSED", [], config)
     return 0
 
 
@@ -246,18 +294,30 @@ def cmd_sarif(args):
     return 0
 
 
-def _exit_code(findings):
-    def sev(f):
-        return f["severity"] if isinstance(f, dict) else f.severity
-    return 1 if any(sev(f) in ("CRITICAL", "HIGH") for f in findings) else 0
+def _exit_code(findings, config=None, target=None, notify_cfg=None,
+               blocking=None):
+    """Exit 1 when any finding trips the policy; else 0."""
+    config = config or {}
+    if blocking is None:
+        blocking = config_mod.failing_findings(findings, config)
+    if target is not None and notify_cfg is None:
+        _notify(target, "FAILED", blocking, config)
+    return 1 if blocking else 0
 
 
 def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
     try:
         if args.command == "scan":
-            result, _ = _run_scan(args)
-            return _exit_code(result.findings)
+            config = load_policy(args)
+            result, _ = _run_scan(args, config)
+            blocking = config_mod.failing_findings(
+                [f.to_dict() for f in result.findings], config)
+            if blocking:
+                print(f"\nPOLICY: {len(blocking)} finding(s) at or above the "
+                      f"threshold (fail_on={config.get('fail_on')}).")
+                _notify(args.path, "FAILED", blocking, config)
+            return 1 if blocking else 0
         if args.command == "verify":
             return cmd_verify(args)
         if args.command == "ci":
