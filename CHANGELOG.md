@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-14
+
+### Added
+- Threat intelligence enrichment (CISA KEV + FIRST EPSS) with a 24h local
+  cache; KEV-listed CVEs are boosted to the top of the risk ranking.
+- SARIF 2.1.0 export (`gatekeeper.sarif` per scan + `gatekeeper sarif` CLI)
+  for GitHub Code Scanning and IDE integrations.
+- `gatekeeper ci`: diff-aware PR gate that keeps only findings introduced by
+  the change (fingerprint-based identity tolerates line drift) and emits SARIF.
+- `gatekeeper fix`: closed-loop SCA autofix - bumps vulnerable dependencies
+  (npm/pnpm/yarn/requirements.txt), re-scans to verify and opens a draft PR.
+- Built-in MCP server (`gatekeeper mcp`): coding agents operate Gatekeeper
+  natively via `gatekeeper_scan`, `gatekeeper_list`, `gatekeeper_finding`,
+  `gatekeeper_triage`, `gatekeeper_verify` and `gatekeeper_plan`.
+- Secret validity checks (`scan --validate-secrets`): probes leaked
+  credentials against their provider APIs; a confirmed-live credential is
+  promoted to CRITICAL with a `[CREDENTIAL CONFIRMED LIVE]` flag.
+
 ## [1.0.0] - 2026-09-14
 
 ### Added
@@ -23,3 +41,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   filterable findings table, triage actions and GitHub Issue / Fix PR actions.
 - GitHub integration via `gh` CLI: create issues and draft fix PRs.
 - SBOM generation (CycloneDX via Syft) on every scan.
+
+## [1.0.0] - 2026-09-14

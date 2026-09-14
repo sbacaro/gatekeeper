@@ -26,6 +26,12 @@ class Finding:
     package: str = ""                  # pkg@version for SCA findings
     risk_score: int = 0                # 0-100 computed risk ranking
     code_snippet: str = ""             # source excerpt around the finding
+    # --- threat intel enrichment ---
+    kev: bool = False                  # present in CISA Known Exploited Vulnerabilities
+    kev_date: str = ""                 # date the CVE was added to KEV
+    ransomware: bool = False           # KEV entry tied to a known ransomware campaign
+    epss: float | None = None          # EPSS probability (0-1) of exploitation in 30d
+    secret_validation: dict | None = None  # liveliness check result (secrets only)
 
     def to_dict(self):
         return asdict(self)

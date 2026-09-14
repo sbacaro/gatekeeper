@@ -23,8 +23,13 @@ as a tool you own:
 |---|---|---|
 | SAST + SCA + secrets + IaC + DAST in one report | Yes | Yes |
 | Risk scoring (0-100), CVSS/CWE/OWASP mapping | Yes | Yes |
+| **CISA KEV + EPSS threat intel on every CVE** | Yes (offline cache) | Yes |
+| Secret validity checks (is the credential still live?) | Yes (opt-in) | Paid tier |
 | Triage: ignore, accept risk, snooze, severity override | Yes | Yes |
 | AI-executable fix plans / autofix | Yes (any coding agent) | Proprietary |
+| **MCP server** - agents operate Gatekeeper natively | Yes | No |
+| Closed-loop dependency autofix (`fix` -> verify -> PR) | Yes | Paid tier |
+| SARIF export + diff-aware PR gate (`ci`) | Yes | Yes |
 | Create GitHub Issue / draft fix PR per finding | Yes | Yes |
 | SBOM (CycloneDX) on every scan | Yes | Paid tier |
 | Price | Free for noncommercial use | Per-seat SaaS |
@@ -127,6 +132,66 @@ Docker is only needed for the optional `--dast` (ZAP) and MobSF mobile scans.
 ./bin/gatekeeper scan ./sample-vulnerable-app
 ```
 
+### Validate leaked credentials (opt-in)
+
+```bash
+# Checks each found secret against its provider API (GitHub, Slack, Stripe,
+# OpenAI, Google, npm). A confirmed-live credential is promoted to CRITICAL
+# and flagged as [CREDENTIAL CONFIRMED LIVE]. Generates provider audit-log
+# events, so it is opt-in.
+./bin/gatekeeper scan ./sample-vulnerable-app --validate-secrets
+```
+
+### Diff-aware CI gate for pull requests
+
+`gatekeeper ci` scans, keeps only findings introduced by the change (line
+drift is tolerated via stable fingerprints) and emits SARIF for GitHub Code
+Scanning. Pre-existing findings do not block the PR - that is `verify`'s job.
+
+```yaml
+# .github/workflows/security.yml
+- name: Gatekeeper PR gate
+  run: |
+    gatekeeper ci . --base origin/main --sarif-out gatekeeper.sarif
+    gh api repos/$REPO/code-scanning/sarifs -f sarif=@gatekeeper.sarif || true
+```
+
+### Closed-loop dependency autofix
+
+`gatekeeper fix` bumps vulnerable dependencies (npm/pnpm/yarn/requirements.txt),
+re-scans to confirm the CVEs are gone, and opens a draft PR via `gh`:
+
+```bash
+./bin/gatekeeper fix ./sample-vulnerable-app          # bumps + verify + PR
+./bin/gatekeeper fix ./sample-vulnerable-app --no-pr  # local bumps only
+```
+
+### MCP server for coding agents
+
+Gatekeeper ships a built-in MCP (Model Context Protocol) server, so agents
+like Cursor can *operate* Gatekeeper natively instead of reading a plan file:
+
+```json
+// .cursor/mcp.json (or your MCP client's config)
+{
+  "mcpServers": {
+    "gatekeeper": { "command": "/path/to/gatekeeper/bin/gatekeeper", "args": ["mcp"] }
+  }
+}
+```
+
+Tools exposed: `gatekeeper_scan`, `gatekeeper_list`, `gatekeeper_finding`,
+`gatekeeper_triage`, `gatekeeper_verify`, `gatekeeper_plan`.
+
+### SARIF output
+
+Every scan writes `gatekeeper.sarif` alongside the other reports; you can also
+convert or re-print the latest scan:
+
+```bash
+gatekeeper sarif /path/to/project > results.sarif
+```
+
 ## Web UI
 
 ```bash
@@ -153,7 +218,8 @@ Opens a local dashboard at `http://127.0.0.1:8695` (localhost only, stdlib only)
 |---|---|
 | `REPORT.md` / `REPORT.html` | Human-readable findings report |
 | `REMEDIATION_PLAN.md` | Prioritized fix plan with **AI directives** — point the Cursor agent at this file |
-| `summary.json` | Machine-readable unified findings (CVSS, CWE/OWASP, risk score, code snippets) |
+| `summary.json` | Machine-readable unified findings (CVSS, CWE/OWASP, risk score, KEV/EPSS, code snippets) |
+| `gatekeeper.sarif` | SARIF 2.1.0 export for GitHub Code Scanning / IDEs |
 | `raw/` | Raw JSON output of each scanner, plus the CycloneDX SBOM |
 
 ## Using with Cursor (or any coding agent)
@@ -183,6 +249,7 @@ bin/                       Executable entry points (gatekeeper, gatekeeper-ui)
 gatekeeper/
   core/                    Scan pipeline, CLI, reporting, triage, GitHub integration
   scanners/                Per-tool scanner runners
+  mcp/                     MCP server for coding agents (stdio, zero deps)
   ui/                      Local web dashboard (stdlib HTTP server + static HTML)
   rules/                   Custom Semgrep rules shipped with Gatekeeper
 docs/                      Documentation
@@ -196,6 +263,19 @@ sample-vulnerable-app/     Intentionally vulnerable demo app for testing scans
 | 0 | No HIGH/CRITICAL findings |
 | 1 | HIGH/CRITICAL findings present |
 | 2 | Usage or runtime error |
+
+## Threat intelligence (KEV + EPSS)
+
+Every SCA finding is enriched with two free public feeds, cached locally
+(`~/.cache/gatekeeper/`, 24h TTL) so scans stay fully offline after the first
+refresh:
+
+- **CISA KEV** - the CVE is exploited in the wild (adds up to +30 risk points;
+  ransomware-linked CVEs get extra weight)
+- **EPSS** - probability of exploitation in the next 30 days (up to +15)
+
+A KEV-listed CRITICAL CVE tops the report at risk 100. Findings without any
+intel fall back to keyword-based exploitability heuristics.
 
 ## Contributing
 

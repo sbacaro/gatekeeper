@@ -1,6 +1,7 @@
 """Merge findings from all scanners, dedupe, sort and build the ScanResult."""
 import re
 
+from gatekeeper.core import threat
 from gatekeeper.core.models import ScanResult
 from gatekeeper.core.risk import compute_risk
 
@@ -63,19 +64,43 @@ def merge_findings(all_findings):
     for key in to_remove:
         by_key.pop(key, None)
 
-    findings = list(by_key.values())
-    SEV_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    return list(by_key.values())
+
+
+def enrich_findings(findings):
+    """Attach threat intel (KEV/EPSS) and risk scores, then sort by risk."""
+    as_dicts = [f.to_dict() for f in findings]
+    try:
+        kev = threat.load_kev()
+        epss = threat.load_epss()
+    except Exception:
+        kev, epss = {}, {}
+    threat.enrich_with_threat_intel(as_dicts, kev, epss)
+
+    by_id = {}
     for f in findings:
-        f.risk_score = compute_risk(f.to_dict())
-    findings.sort(
+        by_id[f.id] = f
+    enriched = []
+    for d in as_dicts:
+        original = by_id.get(d["id"])
+        if original is None:
+            continue
+        for key in ("kev", "kev_date", "ransomware", "epss"):
+            if key in d:
+                setattr(original, key, d[key])
+        original.risk_score = compute_risk(d)
+        enriched.append(original)
+
+    SEV_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    enriched.sort(
         key=lambda f: (-f.risk_score, SEV_ORDER.index(f.severity),
                        f.category, f.file, f.line)
     )
-    return findings
+    return enriched
 
 
 def build_scan_result(target, timestamp, stacks, tools_run, tools_skipped, all_findings):
-    findings = merge_findings(all_findings)
+    findings = enrich_findings(merge_findings(all_findings))
     return ScanResult(
         target=str(target),
         timestamp=timestamp,

@@ -3,13 +3,16 @@
 risk_score (0-100) is computed from:
   - severity (dominant factor)
   - CVSS score when the scanner provides one
-  - exploitability signals (known exploits, reachable code, secrets in history)
+  - real-world exploitation signals (CISA KEV, EPSS) when threat intel is
+    available (see gatekeeper.core.threat)
+  - exploitability fallbacks when no intel exists (keyword signals, category)
   - category weight (secrets in history are instantly weaponizable, etc.)
 """
 import re
 
+from gatekeeper.core.threat import threat_bonus
+
 SEV_BASE = {"CRITICAL": 78, "HIGH": 60, "MEDIUM": 38, "LOW": 18, "INFO": 6}
-CAT_BOOST = {"secrets": 12, "sast": 6, "dast": 6, "sca": 3, "iac": 2}
 
 _EXPLOIT_WORDS = (
     "injection", "rce", "deserializ", "command", "sql", "xxe", "ssrf",
@@ -67,7 +70,7 @@ def owasp_of(cwe: str) -> str:
     return _CWE_OWASP.get(cwe, "")
 
 
-def _cvss_to_sev_bonus(cvss: float | None) -> int:
+def _cvss_to_sev_bonus(cvss) -> int:
     if cvss is None:
         return 0
     # Align with CVSS qualitative bands: 9.0-10 critical, 7.0-8.9 high...
@@ -75,6 +78,7 @@ def _cvss_to_sev_bonus(cvss: float | None) -> int:
 
 
 def exploit_bonus(f) -> int:
+    """Heuristic fallback used only when no threat-intel signal exists."""
     text = " ".join(str(f.get(k, "")) for k in ("title", "description", "cwe")).lower()
     bonus = 0
     if any(w in text for w in _EXPLOIT_WORDS):
@@ -86,14 +90,17 @@ def exploit_bonus(f) -> int:
 
 
 def compute_risk(f: dict) -> int:
-    """0-100 risk score. Severity dominates, CVSS refines, exploitability
-    signals and category weight nudge it up."""
+    """0-100 risk score. Severity dominates; KEV/EPSS raise the score of
+    vulnerabilities with evidence of real-world exploitation; CVSS and
+    keyword heuristics refine the rest."""
     sev = (f.get("severity") or "INFO").upper()
     score = SEV_BASE.get(sev, 6)
     score += _cvss_to_sev_bonus(f.get("cvss"))
-    score += exploit_bonus(f)
-    score += {"sast": 0, "sca": 0, "secrets": 0, "iac": 0, "dast": 0}.get(
-        f.get("category"), 0)
+    score += threat_bonus(f)
+    # The keyword heuristic only applies when threat intel added no signal,
+    # so a KEV-listed "informational-sounding" CVE is not double-boosted.
+    if not (f.get("kev") or f.get("epss") is not None):
+        score += exploit_bonus(f)
     score = min(100, score)
     # Secrets live in a tier of their own regardless of nominal severity.
     if f.get("category") == "secrets" and score < 85:

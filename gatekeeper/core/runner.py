@@ -46,7 +46,8 @@ def select_tools(tools_arg, dast_url, stacks):
     return selected
 
 
-def run_scan(target, tools=None, dast_url=None, out_root=None, progress_cb=None):
+def run_scan(target, tools=None, dast_url=None, out_root=None, progress_cb=None,
+             validate_secrets=False):
     """Run a full scan. Returns (ScanResult, scan_dir).
 
     progress_cb(event, **kwargs) is called with:
@@ -101,6 +102,9 @@ def run_scan(target, tools=None, dast_url=None, out_root=None, progress_cb=None)
     for f in result.findings:
         f.code_snippet = code_snippet(target, f.file, f.line)
 
+    if validate_secrets:
+        _validate_secrets(target, result)
+
     scan_dir.mkdir(parents=True, exist_ok=True)
     (scan_dir / "summary.json").write_text(json.dumps(result.to_dict(), indent=2))
     write_reports(result.to_dict(), scan_dir)
@@ -109,3 +113,19 @@ def run_scan(target, tools=None, dast_url=None, out_root=None, progress_cb=None)
 
     progress_cb("scan_done", result=result, scan_dir=scan_dir)
     return result, scan_dir
+
+
+def _validate_secrets(target, result):
+    """Opt-in: probe leaked credentials against their providers. A confirmed
+    live credential is promoted to CRITICAL/risk 100 and flagged in the report."""
+    from gatekeeper.core import secretval
+
+    for f in result.findings:
+        if f.category != "secrets":
+            continue
+        check = secretval.validate_secret(target, f.to_dict())
+        f.secret_validation = check
+        if check.get("live") is True:
+            f.severity = "CRITICAL"
+            f.risk_score = 100
+            f.title = f"{f.title} [CREDENTIAL CONFIRMED LIVE]".strip()

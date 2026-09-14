@@ -3,6 +3,7 @@ import html
 from pathlib import Path
 
 from gatekeeper.core.models import SEVERITY_ORDER
+from gatekeeper.core.sarif import write_sarif
 
 SEV_BADGE = {
     "CRITICAL": "🔴 CRITICAL",
@@ -12,9 +13,14 @@ SEV_BADGE = {
     "INFO": "⚪ INFO",
 }
 
-SEV_COLOR = {
-    "CRITICAL": "#7f1d1d", "HIGH": "#9a3412", "MEDIUM": "#a16207",
-    "LOW": "#1d4ed8", "INFO": "#4b5563",
+# Severity -> CSS class in the HTML report. Colors live exclusively in the
+# CSS custom properties (--sev-*) so the report stays themeable.
+SEV_CLASS = {
+    "CRITICAL": "sev-critical",
+    "HIGH": "sev-high",
+    "MEDIUM": "sev-medium",
+    "LOW": "sev-low",
+    "INFO": "sev-info",
 }
 
 
@@ -32,6 +38,17 @@ def _location(f):
     if not file:
         return "n/a"
     return f"{file}:{line}" if line else file
+
+
+def _threat_meta(f) -> str:
+    parts = []
+    if f.get("kev"):
+        parts.append("🚨 KEV (actively exploited)")
+    if f.get("ransomware"):
+        parts.append("ransomware campaign")
+    if f.get("epss") is not None:
+        parts.append(f"EPSS {f['epss']*100:.1f}%")
+    return "; ".join(parts)
 
 
 def report_markdown(result: dict) -> str:
@@ -82,6 +99,9 @@ def report_markdown(result: dict) -> str:
             f"- **Description:** {f['description']}",
             f"- **Remediation:** {f['remediation_hint']}",
         ]
+        threat = _threat_meta(f)
+        if threat:
+            lines.append(f"- **Threat intel:** {threat}")
         if meta:
             lines.append(f"- **Metadata:** {('; '.join(meta))}")
         if f.get("code_snippet"):
@@ -95,12 +115,14 @@ def report_html(result: dict) -> str:
     counts = _counts(findings)
     rows = []
     for i, f in enumerate(findings, 1):
-        color = SEV_COLOR.get(f["severity"], "#4b5563")
+        sev_cls = SEV_CLASS.get(f["severity"], "sev-info")
+        threat = _threat_meta(f)
+        threat_html = (f"<br><small>{html.escape(threat)}</small>" if threat else "")
         rows.append(f"""
         <tr>
           <td>{i}</td>
-          <td><span class="badge" style="background:{color}">
-              {html.escape(f['severity'])}</span></td>
+          <td><span class="badge {sev_cls}">
+              {html.escape(f['severity'])}</span>{threat_html}</td>
           <td>{html.escape(f['title'])}</td>
           <td>{html.escape(f['tool'])}<br><small>{html.escape(f['category'])}</small></td>
           <td><code>{html.escape(_location(f))}</code></td>
@@ -109,7 +131,7 @@ def report_html(result: dict) -> str:
         </tr>""")
 
     summary_cells = "".join(
-        f"<td style='color:{SEV_COLOR[s]}'>{counts.get(s, 0)}</td>"
+        f"<td class='{SEV_CLASS[s]}'>{counts.get(s, 0)}</td>"
         for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
     )
 
@@ -119,14 +141,41 @@ def report_html(result: dict) -> str:
 <meta charset="utf-8">
 <title>Gatekeeper Report - {html.escape(result['target'])}</title>
 <style>
-  body {{ font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 2rem; }}
+  :root {{
+    --bg: #ffffff; --text: #111827; --muted: #4b5563;
+    --border: #d1d5db; --head-bg: #f3f4f6; --code-bg: #f3f4f6;
+    --sev-critical: #7f1d1d; --sev-high: #9a3412; --sev-medium: #a16207;
+    --sev-low: #1d4ed8; --sev-info: #4b5563; --badge-fg: #ffffff;
+  }}
+  @media (prefers-color-scheme: dark) {{
+    :root {{
+      --bg: #12121f; --text: #e8e8f2; --muted: #9494a8;
+      --border: #2c2c40; --head-bg: #1d1d30; --code-bg: #1d1d30;
+      --sev-critical: #f87171; --sev-high: #fb923c; --sev-medium: #fbbf24;
+      --sev-low: #60a5fa; --sev-info: #7c7c95;
+      color-scheme: dark;
+    }}
+  }}
+  body {{ font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 2rem;
+         background: var(--bg); color: var(--text); }}
   table {{ border-collapse: collapse; width: 100%; font-size: 14px; }}
-  th, td {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }}
-  th {{ background: #f3f4f6; }}
-  .badge {{ color: white; padding: 2px 8px; border-radius: 4px;
+  th, td {{ border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }}
+  th {{ background: var(--head-bg); }}
+  .badge {{ padding: 2px 8px; border-radius: 4px;
            font-weight: 600; font-size: 12px; }}
   .summary td {{ font-size: 20px; font-weight: 700; text-align: center; }}
-  code {{ background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }}
+  code {{ background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }}
+  .sev-critical {{ background: var(--sev-critical); color: var(--badge-fg); }}
+  .sev-high {{ background: var(--sev-high); color: var(--badge-fg); }}
+  .sev-medium {{ background: var(--sev-medium); color: var(--badge-fg); }}
+  .sev-low {{ background: var(--sev-low); color: var(--badge-fg); }}
+  .sev-info {{ background: var(--sev-info); color: var(--badge-fg); }}
+  td.sev-critical, td.sev-high, td.sev-medium, td.sev-low, td.sev-info
+    {{ color: var(--sev-critical); background: none; }}
+  td.sev-high {{ color: var(--sev-high); }}
+  td.sev-medium {{ color: var(--sev-medium); }}
+  td.sev-low {{ color: var(--sev-low); }}
+  td.sev-info {{ color: var(--sev-info); }}
 </style>
 </head>
 <body>
@@ -153,3 +202,4 @@ def write_reports(result: dict, out_dir: Path):
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "REPORT.md").write_text(report_markdown(result))
     (out_dir / "REPORT.html").write_text(report_html(result))
+    write_sarif(result, out_dir)
