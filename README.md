@@ -1,12 +1,12 @@
 # Gatekeeper
 
 [![CI](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml)
-[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm--NC-orange.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 
-**Gatekeeper is a free, open-source alternative to Aikido Security and other
-commercial AppSec platforms.** One command runs the best open-source scanners,
-merges their findings into a single risk-scored report, and generates an
+**Gatekeeper is a free alternative to Aikido Security and other commercial
+AppSec platforms.** One command runs the best open-source scanners, merges
+their findings into a single risk-scored report, and generates an
 AI-executable remediation plan that coding agents (Cursor, Claude Code, Copilot
 Workspace) can apply directly - then verifies the fixes.
 
@@ -27,7 +27,7 @@ as a tool you own:
 | AI-executable fix plans / autofix | Yes (any coding agent) | Proprietary |
 | Create GitHub Issue / draft fix PR per finding | Yes | Yes |
 | SBOM (CycloneDX) on every scan | Yes | Paid tier |
-| Price | Free, AGPL-3.0 | Per-seat SaaS |
+| Price | Free for noncommercial use | Per-seat SaaS |
 
 ## Scanners used
 
@@ -169,6 +169,12 @@ Found a vulnerability in Gatekeeper itself? See
 
 ## License
 
-[AGPL-3.0](LICENSE) — free for personal, educational and internal use.
-Commercial redistribution as part of a paid product requires open-sourcing
-your changes under the same license (strong copyleft).
+Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may
+use, study, modify and share Gatekeeper freely for any **noncommercial**
+purpose - personal projects, research, education, and use by charities,
+schools and government institutions.
+
+**Commercial use requires a separate license** from the author. If your
+company wants to use Gatekeeper in a product or paid service,
+[open an issue](https://github.com/sbacaro/gatekeeper/issues/new?template=feature_request.md&title=Commercial%20license%20inquiry)
+to discuss it.

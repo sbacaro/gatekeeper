@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gatekeeper-security"
 version = "1.0.0"
-description = "Free, open-source alternative to commercial AppSec platforms: unified SAST, SCA, secrets, IaC and DAST scanning with risk scoring and AI-executable remediation plans."
+description = "Free (noncommercial) alternative to commercial AppSec platforms: unified SAST, SCA, secrets, IaC and DAST scanning with risk scoring and AI-executable remediation plans."
 readme = "README.md"
 requires-python = ">=3.9"
-license = "AGPL-3.0-only"
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 authors = [{ name = "Samuel Bacaro" }]
 keywords = [
     "security", "sast", "sca", "secrets", "iac", "dast", "appsec",
@@ -18,7 +18,7 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "License :: Other/Proprietary License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",

@@ -46,8 +46,8 @@ sample-vulnerable-app/  Intentionally vulnerable demo app for testing scans
 3. Run a self-scan before submitting: `./bin/gatekeeper scan ./sample-vulnerable-app`
    should behave as before your change.
 4. Describe what changed and why; link any related issue.
-5. By submitting a PR you agree your contribution is licensed under
-   AGPL-3.0, same as the rest of the project.
+5. By submitting a PR you agree your contribution is licensed under the
+   PolyForm Noncommercial License 1.0.0, same as the rest of the project.
 
 ## Reporting bugs
 

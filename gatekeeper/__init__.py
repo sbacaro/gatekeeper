@@ -1,18 +1,13 @@
-"""Gatekeeper - free, open-source alternative to commercial AppSec platforms.
+"""Gatekeeper - free alternative to commercial AppSec platforms.
 
 Unifies best-in-class open-source scanners (Semgrep, Trivy, Gitleaks, OSV-Scanner,
 Checkov, Syft, Grype and more) into a single prioritized, risk-scored report with
 an AI-executable remediation plan.
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
-details: https://www.gnu.org/licenses/agpl-3.0.html
+Licensed under the PolyForm Noncommercial License 1.0.0: free to use, study,
+modify and share for any noncommercial purpose. Commercial use requires a
+separate license from the author.
+See https://polyformproject.org/licenses/noncommercial/1.0.0
 """
 
 __version__ = "1.0.0"
