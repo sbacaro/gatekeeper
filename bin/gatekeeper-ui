@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""Gatekeeper Web UI - local dashboard for security scans.
+
+Starts a local server (127.0.0.1 only) and opens the browser.
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from gatekeeper.ui.server import serve
+
+if __name__ == "__main__":
+    port = 8695
+    if len(sys.argv) > 1:
+        try:
+            port = int(sys.argv[1])
+        except ValueError:
+            print(f"Invalid port: {sys.argv[1]}", file=sys.stderr)
+            sys.exit(2)
+    serve(port=port, open_browser=True)

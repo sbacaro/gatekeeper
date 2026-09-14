@@ -1,0 +1,9 @@
+import os
+
+STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
+SENDGRID_API_KEY = os.environ["SENDGRID_API_KEY"]
+
+DATABASE_URL = os.environ["DATABASE_URL"]
+JWT_SIGNING_SECRET = os.environ["JWT_SIGNING_SECRET"]
+
+ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]

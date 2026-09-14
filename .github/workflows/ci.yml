@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pipx install ruff
+      - name: Ruff check
+        run: ruff check gatekeeper/ bin/
+      - name: Byte-compile check
+        run: python -m compileall -q gatekeeper/
+
+  smoke-test:
+    name: Smoke test (scan sample app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scanners
+        run: |
+          sudo apt-get update -qq
+          # Lightweight subset for CI; full set documented in install.sh
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+          pipx install semgrep
+      - name: Run scan on sample app
+        run: |
+          python bin/gatekeeper scan ./sample-vulnerable-app --tools semgrep,gitleaks,syft,grype --output /tmp/gk-reports
+      - name: Verify report artifacts
+        run: |
+          ls /tmp/gk-reports/*/summary.json /tmp/gk-reports/*/REPORT.md /tmp/gk-reports/*/REMEDIATION_PLAN.md
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-scan-report
+          path: /tmp/gk-reports
+          retention-days: 7

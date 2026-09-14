@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gatekeeper</title>
+<style>
+  /* Aikido-inspired design system */
+  :root {
+    --bg: #f9f9f9; --card: #ffffff; --border: #e5e5e9; --border2: #ececef;
+    --text: #1a1a2e; --muted: #73727f; --accent: #6551f3;
+    --critical: #e5484d; --high: #f76b15; --medium: #ffb224;
+    --low: #3b82f6; --info: #8f8fa3; --ok: #30a46c;
+    --sidebar-bg: #141031; --cyan: #17dfdc;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text);
+         font-family: Inter, -apple-system, "Segoe UI", sans-serif; font-size: 13px;
+         -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; font-size: 13px; }
+  input, select { font-family: inherit; font-size: 13px; color: var(--text); }
+
+  /* ============ sidebar (dark, like Aikido) ============ */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 232px; background: var(--sidebar-bg); color: #f9f9f9;
+             display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 20px 18px 14px; }
+  .brand svg { width: 24px; height: 24px; }
+  .brand span { font-weight: 600; font-size: 15px; letter-spacing: -0.2px; }
+  .plan-badge { margin: 0 14px 12px; background: rgba(23,223,220,.16); color: var(--cyan);
+                border-radius: 8px; padding: 8px 12px; font-size: 12px; display: flex;
+                justify-content: space-between; align-items: center; }
+  .plan-badge a { color: var(--cyan); font-weight: 600; text-decoration: none; }
+  .nav { flex: 1; overflow-y: auto; padding: 4px 10px; }
+  .nav-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px;
+               color: rgba(249,249,249,.38); padding: 14px 10px 6px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px;
+           color: rgba(249,249,249,.72); text-decoration: none; font-size: 13px; margin-bottom: 1px; }
+  .nav a:hover { background: rgba(249,249,249,.07); color: #fff; }
+  .nav a.active { background: rgba(101,81,243,.35); color: #fff; font-weight: 500; }
+  .nav svg { width: 16px; height: 16px; opacity: .8; }
+  .nav .count { margin-left: auto; background: rgba(249,249,249,.14); border-radius: 10px;
+                padding: 1px 7px; font-size: 11px; }
+  .repo-tag { padding: 12px 14px; border-top: 1px solid rgba(249,249,249,.08); }
+  .repo-tag .name { font-size: 13px; font-weight: 600; }
+
+  /* ============ main ============ */
+  .main { flex: 1; min-width: 0; }
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border);
+            padding: 0 28px; height: 54px; display: flex; align-items: center; gap: 10px; }
+  .topbar h1 { font-size: 15px; font-weight: 600; margin-right: 8px; }
+  .topbar .divider { width: 1px; height: 22px; background: var(--border); }
+  .search { background: #f4f4f6; border: 1px solid transparent; border-radius: 8px;
+            padding: 7px 14px; width: 240px; font-size: 13px; }
+  .search:focus { outline: none; background: #fff; border-color: var(--accent); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
+         border-radius: 8px; font-weight: 500; border: 1px solid var(--border);
+         background: var(--card); color: var(--text); }
+  .btn:hover { background: #f4f4f6; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { background: #5443d9; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .content { padding: 24px 28px; max-width: 1280px; }
+
+  /* stats strip */
+  .stats { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+          padding: 14px 18px; min-width: 128px; }
+  .stat .num { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .stat .lbl { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .stat.critical .num { color: var(--critical); }
+  .stat.high .num { color: var(--high); }
+  .stat.medium .num { color: var(--medium); }
+  .stat.low .num { color: var(--low); }
+  .stat.info .num { color: var(--info); }
+
+  /* panel */
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+           overflow: hidden; margin-bottom: 20px; }
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 13px 18px;
+                border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .panel-head h2 { font-size: 14px; font-weight: 600; }
+  .panel-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .filters select { background: var(--card); border: 1px solid var(--border);
+                    border-radius: 7px; padding: 6px 10px; font-size: 12.5px; }
+  .filter-search { background: #f4f4f6; border: 1px solid transparent; border-radius: 7px;
+                   padding: 6px 12px; width: 200px; }
+  .filter-search:focus { outline: none; background: #fff; border-color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; font-weight: 500; color: var(--muted);
+       padding: 9px 18px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 18px; border-bottom: 1px solid #f4f4f6; font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #fafafa; }
+  tr.detail-row { cursor: default; }
+  tr.detail-row:hover { background: #f9f9f9; }
+  tr.detail-row td { background: #fafafa; border-top: 1px solid var(--border); }
+  .issue-title { font-weight: 500; }
+  .issue-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .sev { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
+  .sev .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .sev.critical .dot { background: var(--critical); } .sev.critical { color: var(--critical); }
+  .sev.high .dot { background: var(--high); } .sev.high { color: var(--high); }
+  .sev.medium .dot { background: var(--medium); } .sev.medium { color: var(--medium); }
+  .sev.low .dot { background: var(--low); } .sev.low { color: var(--low); }
+  .sev.info .dot { background: var(--info); } .sev.info { color: var(--info); }
+  .loc { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .tag { display: inline-block; background: #f1f1f4; color: var(--muted); border-radius: 6px;
+         padding: 2px 8px; font-size: 11px; margin-right: 4px; }
+
+  /* progress */
+  .scan-panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+                padding: 20px 22px; margin-bottom: 20px; display: none; }
+  .scan-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .scan-head h2 { font-size: 15px; font-weight: 600; }
+  .scan-head .repo { color: var(--muted); font-size: 12.5px; }
+  .pbar { background: #ececef; height: 6px; border-radius: 3px; margin: 14px 0 6px; overflow: hidden; }
+  .pbar-fill { height: 100%; background: var(--accent); width: 0%; transition: width .4s ease; border-radius: 3px; }
+  .prow { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+  .prow strong { color: var(--text); font-size: 14px; }
+  .steps { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .step { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+  .st { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; position: relative; }
+  .st.pending { border: 1.5px solid #d5d5dc; }
+  .st.running { border: 1.5px solid var(--accent); border-top-color: transparent;
+                animation: spin .7s linear infinite; }
+  .st.done { background: var(--ok); }
+  .st.done::after { content: ""; position: absolute; left: 4.5px; top: 2.5px; width: 4px; height: 8px;
+                    border-right: 1.8px solid #fff; border-bottom: 1.8px solid #fff;
+                    transform: rotate(45deg); }
+  .st.failed { background: var(--critical); }
+  .st.failed::after { content: "x"; color: #fff; font-size: 10px; position: absolute;
+                      left: 4px; top: -1px; font-weight: 700; }
+  .st.skip { background: #d5d5dc; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .step .detail { margin-left: auto; color: var(--muted); font-size: 12px;
+                  font-variant-numeric: tabular-nums; }
+  .step .err { color: var(--critical); font-size: 12px; }
+
+  /* setup */
+  .setup { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+           padding: 26px; margin-bottom: 20px; }
+  .setup h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .setup p { color: var(--muted); margin-bottom: 18px; }
+  .setup .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .setup input[type=text] { background: #f4f4f6; border: 1px solid var(--border);
+                            border-radius: 8px; padding: 8px 13px; }
+  .setup input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+  .setup label { display: flex; align-items: center; gap: 6px; color: var(--muted);
+                 font-size: 13px; cursor: pointer; }
+
+  /* view toggle */
+  .view-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .view-toggle button { border-radius: 0; padding: 6px 12px; font-size: 12px; background: var(--card); }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+
+  /* status chips in table */
+  .status { font-size: 11.5px; font-weight: 500; }
+  .status.open { color: var(--text); }
+  .status.new { color: var(--accent); }
+  .status.ignored { color: var(--muted); }
+  .status.snoozed { color: var(--medium); }
+  .status.solved { color: var(--ok); }
+
+  /* action buttons in rows */
+  .acts { display: flex; gap: 4px; flex-wrap: wrap; }
+  .act { border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px;
+         font-size: 11.5px; color: var(--muted); background: var(--card); }
+  .act:hover { border-color: var(--accent); color: var(--accent); }
+  .act.danger:hover { border-color: var(--critical); color: var(--critical); }
+  .act.autofix:hover { border-color: var(--ok); color: var(--ok); }
+  .act.gh:hover { border-color: #24292f; color: #24292f; }
+
+  /* risk score pill */
+  .risk { display: inline-flex; align-items: center; justify-content: center;
+          min-width: 34px; height: 22px; border-radius: 6px; font-size: 11.5px;
+          font-weight: 700; color: #fff; }
+  .risk.r90 { background: var(--critical); }
+  .risk.r70 { background: var(--high); }
+  .risk.r50 { background: var(--medium); color: #4a3200; }
+  .risk.r30 { background: var(--low); }
+  .risk.r0  { background: #d5d5dc; color: var(--text); }
+
+  /* meta chips in detail row */
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .meta .chip { background: #f1f1f4; border: 1px solid var(--border2);
+                border-radius: 6px; padding: 2px 9px; font-size: 11.5px;
+                color: var(--text); }
+  .meta .chip.acc { background: #e8f7ef; border-color: #b5e3cc; color: #1d7a4c; }
+  .meta .chip b { font-weight: 600; }
+  pre.snippet { background: #16162a; color: #e8e8f2; border-radius: 8px;
+                padding: 12px 14px; font-size: 12px; line-height: 1.5;
+                overflow-x: auto; font-family: ui-monospace, monospace; }
+  dialog { border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px;
+           max-width: 420px; width: 92vw; }
+  dialog::backdrop { background: rgba(20,16,49,.35); }
+  dialog h3 { font-size: 14px; margin-bottom: 12px; }
+  dialog .row { display: flex; gap: 8px; flex-direction: column; margin-bottom: 12px; }
+  dialog input[type=text], dialog select, dialog textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 7px;
+    padding: 7px 10px; font-size: 13px; background: #f4f4f6; }
+  dialog textarea { min-height: 60px; resize: vertical; font-family: inherit; }
+  dialog .btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* config errors */
+  .cfg { background: #fff8eb; border: 1px solid #f5dfaa; border-radius: 10px;
+         padding: 14px 18px; margin-bottom: 20px; }
+  .cfg h3 { font-size: 13.5px; margin-bottom: 8px; color: #935f10; }
+  .cfg-item { display: flex; gap: 10px; padding: 6px 0; font-size: 13px; align-items: baseline; }
+  .cfg .sev { flex-shrink: 0; }
+
+  /* activity strip */
+  .activity { display: flex; gap: 24px; margin-bottom: 20px; background: var(--card);
+              border: 1px solid var(--border); border-radius: 10px; padding: 16px 22px; }
+  .activity .item .num { font-size: 20px; font-weight: 700; }
+  .activity .item .lbl { color: var(--muted); font-size: 12px; }
+  .activity .item .sub { color: var(--muted); font-size: 11px; }
+
+  /* repos list in sidebar */
+  .repo-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px;
+               color: rgba(249,249,249,.72); font-size: 12.5px; cursor: pointer;
+               text-decoration: none; margin-bottom: 1px; }
+  .repo-item:hover { background: rgba(249,249,249,.07); color: #fff; }
+  .repo-item.active { background: rgba(101,81,243,.35); color: #fff; }
+  .repo-item .cnt { margin-left: auto; background: rgba(249,249,249,.14); border-radius: 10px;
+                    padding: 1px 7px; font-size: 11px; }
+  .repo-item .rescan { opacity: .5; font-size: 11px; }
+  .repo-item:hover .rescan { opacity: 1; color: var(--cyan); }
+
+  .tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .tab { padding: 10px 2px; color: var(--muted); font-weight: 500; cursor: pointer;
+         border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .plan { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 22px; white-space: pre-wrap; font-family: ui-monospace, monospace;
+          font-size: 12.5px; line-height: 1.65; max-height: 72vh; overflow: auto; }
+  .empty { text-align: center; padding: 90px 20px; color: var(--muted); }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff;
+           padding: 11px 18px; border-radius: 8px; font-size: 13px; opacity: 0;
+           transition: opacity .25s; pointer-events: none; z-index: 50; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z" fill="#6551f3"/><path d="M9 11.5l2.2 2.2L15.5 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Gatekeeper</span>
+    </div>
+    <div class="plan-badge"><span>Local scanner</span><a href="#" onclick="return false">free</a></div>
+    <nav class="nav">
+      <div class="nav-group">Scan</div>
+      <a href="#" onclick="showSetup(); return false" id="nav-new" class="active">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        New scan</a>
+      <a href="#" onclick="document.getElementById('btn-browse').click(); return false">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="1.8"/></svg>
+        Browse folder</a>
+      <div class="nav-group">Repositories</div>
+      <div id="repo-list"></div>
+      <div class="nav-group">History</div>
+      <div id="scan-list" style="display:block"></div>
+    </nav>
+    <div class="repo-tag">
+      <div class="name" id="sb-target">No scan</div>
+      <div style="color:rgba(249,249,249,.4);font-size:11px;margin-top:2px">local repository</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="page-title">Issues</h1>
+      <div class="divider"></div>
+      <input class="search" id="search" placeholder="Search issues...">
+      <button class="btn" id="btn-copy">Copy fix plan</button>
+      <button class="btn" id="btn-md">Download .md</button>
+      <button class="btn" id="btn-report">Full report</button>
+    </div>
+
+    <div class="content">
+      <div class="setup" id="setup">
+        <h2>Scan a repository</h2>
+        <p>Gatekeeper runs Semgrep, Trivy, Gitleaks, OSV-Scanner, Checkov, Syft/Grype
+           and GuardDog over a local folder, unifies the findings and generates a
+           prioritized fix plan you can paste into an AI agent.</p>
+        <div class="row">
+          <button class="btn primary" id="btn-browse">Choose folder...</button>
+          <span style="color:var(--muted)">or</span>
+          <input type="text" id="manual-path" placeholder="/absolute/path/to/project" style="flex:1;min-width:260px">
+          <button class="btn" id="btn-run-path">Start scan</button>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" value="semgrep" checked> Semgrep (SAST)</label>
+          <label><input type="checkbox" value="trivy" checked> Trivy (deps + IaC)</label>
+          <label><input type="checkbox" value="gitleaks" checked> Gitleaks (secrets)</label>
+          <label><input type="checkbox" value="osv-scanner" checked> OSV-Scanner (CVEs)</label>
+          <label><input type="checkbox" value="checkov" checked> Checkov (IaC)</label>
+          <label><input type="checkbox" value="syft" checked> Syft (SBOM)</label>
+          <label><input type="checkbox" value="grype" checked> Grype (CVEs SBOM)</label>
+          <label><input type="checkbox" value="guarddog"> GuardDog (malicious pkgs)</label>
+          <input type="text" id="dast-url" placeholder="Live URL for DAST (optional)" style="min-width:220px">
+        </div>
+      </div>
+
+      <div class="scan-panel" id="progress">
+        <div class="scan-head">
+          <h2 id="scan-title">Scanning...</h2>
+          <span class="repo" id="scan-repo"></span>
+        </div>
+        <div class="pbar"><div class="pbar-fill" id="pbar"></div></div>
+        <div class="prow">
+          <span><strong id="pct">0%</strong>&nbsp; <span id="scan-detail"></span></span>
+          <span id="scan-files"></span>
+        </div>
+        <div class="steps" id="steps"></div>
+      </div>
+
+      <div id="results" style="display:none">
+        <div class="activity" id="activity"></div>
+        <div class="stats" id="stats"></div>
+        <div id="config-card"></div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Issues <span id="issues-total" style="color:var(--muted);font-weight:400"></span></h2>
+            <div class="right">
+              <div class="view-toggle">
+                <button id="v-grouped" class="active">Grouped</button>
+                <button id="v-individual">Individual</button>
+              </div>
+              <select id="f-sev"><option value="">All severities</option>
+                <option value="CRITICAL">Critical</option><option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option><option value="LOW">Low</option>
+                <option value="INFO">Info</option></select>
+              <select id="f-cat"><option value="">All types</option>
+                <option value="sast">Code (SAST)</option><option value="sca">Dependencies</option>
+                <option value="secrets">Secrets</option><option value="iac">Infrastructure</option>
+                <option value="dast">Runtime</option></select>
+              <select id="f-status"><option value="">Open issues</option>
+                <option value="open">Open</option><option value="new">New</option>
+                <option value="ignored">Ignored</option><option value="snoozed">Snoozed</option>
+                <option value="solved">Solved</option><option value="">All statuses</option></select>
+              <select id="f-tool"><option value="">All tools</option></select>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th style="width:110px">Severity</th><th>Issue</th>
+              <th style="width:52px">Risk</th>
+              <th style="width:80px">Fix time</th><th style="width:90px">Status</th>
+              <th style="width:230px">Actions</th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="plan-wrap" style="display:none">
+        <div class="plan" id="plan-view">No scan loaded.</div>
+      </div>
+
+      <div class="empty" id="empty">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z" stroke="#d5d5dc" stroke-width="1.5"/><path d="M9 11.5l2.2 2.2L15.5 9" stroke="#d5d5dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h2 style="margin:14px 0 6px;font-size:16px">No scan selected</h2>
+        <p>Choose a folder above or pick a previous scan in the sidebar.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<dialog id="dlg-ignore">
+  <h3>Ignore issue</h3>
+  <p id="ig-title" style="color:var(--muted);margin-bottom:12px;font-size:12.5px"></p>
+  <div class="row">
+    <label style="font-size:12px;color:var(--muted)">Reason (audit trail)</label>
+    <textarea id="ig-reason" placeholder="Why is this being ignored?"></textarea>
+  </div>
+  <div class="row">
+    <label style="display:flex;gap:8px;align-items:center;font-size:12.5px">
+      <input type="checkbox" id="ig-risk" style="accent-color:var(--accent)">
+      Risk accepted (formal acceptance, kept in the issue history)
+    </label>
+  </div>
+  <div class="btns">
+    <button class="btn" onclick="document.getElementById('dlg-ignore').close()">Cancel</button>
+    <button class="btn primary" onclick="submitIgnore()">Ignore</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-sev">
+  <h3>Override severity</h3>
+  <p id="sv-select-label" style="color:var(--muted);margin-bottom:12px;font-size:12.5px"></p>
+  <div class="row">
+    <select id="sv-select">
+      <option value="CRITICAL">Critical</option><option value="HIGH">High</option>
+      <option value="MEDIUM">Medium</option><option value="LOW">Low</option>
+      <option value="INFO">Info</option>
+    </select>
+  </div>
+  <div class="btns">
+    <button class="btn" onclick="document.getElementById('dlg-sev').close()">Cancel</button>
+    <button class="btn primary" onclick="submitSeverity()">Save</button>
+  </div>
+</dialog>
+
+<script>
+const API = location.origin;
+const SEV = ["CRITICAL","HIGH","MEDIUM","LOW","INFO"];
+const SEV_L = { CRITICAL:"Critical", HIGH:"High", MEDIUM:"Medium", LOW:"Low", INFO:"Info" };
+const CAT_L = { sast:"Code", sca:"Dependency", secrets:"Secret", iac:"Infrastructure", dast:"Runtime" };
+const state = { summary:null, planText:"", scanId:null, timer:null, view:null, target:null, grouped:true };
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const locOf = f => !f.file ? "—" : (f.line ? `${f.file}:${f.line}` : f.file);
+const short = p => (p||"").split("/").filter(Boolean).pop();
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m;
+  t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); }
+
+// ------------------------------------------------------------- progress ----
+function renderProgress(st) {
+  const box = document.getElementById("progress");
+  const setup = document.getElementById("setup");
+  if (st.status === "idle") { box.style.display="none"; setup.style.display="block"; return; }
+  box.style.display="block"; setup.style.display="none";
+  document.getElementById("results").style.display="none";
+
+  const start = st.events.find(e => e.event === "scan_start") || {};
+  const tools = start.tools || [];
+  const done = {};
+  let detailEv = null;
+  for (const ev of st.events) {
+    if (ev.event === "tool_done") done[ev.tool] = ev;
+    if (ev.event === "tool_detail") detailEv = ev;
+  }
+
+  const perTool = 100 / Math.max(1, tools.length);
+  let pct = 100;
+  if (st.status === "running") {
+    pct = Object.keys(done).length * perTool;
+    if (detailEv) {
+      const idx = tools.indexOf(detailEv.tool);
+      if (idx >= 0) pct = idx * perTool + ((detailEv.pct || 0) / 100) * perTool;
+    }
+    pct = Math.min(99, Math.round(pct));
+  }
+
+  document.getElementById("scan-title").textContent =
+    st.status === "done" ? "Scan complete" : st.status === "error" ? "Scan failed" : "Scanning";
+  document.getElementById("scan-repo").textContent = start.target || "";
+  document.getElementById("pbar").style.width = pct + "%";
+  document.getElementById("pct").textContent = pct + "%";
+
+  let detail = "";
+  if (st.status === "running" && detailEv)
+    detail = `${detailEv.tool} - ${detailEv.detail}`;
+  else if (st.status === "done") detail = `Finished, ${st.total} issues found`;
+  else if (st.status === "error") detail = st.error || "error";
+  document.getElementById("scan-detail").textContent = detail;
+  document.getElementById("scan-files").textContent =
+    detailEv?.files_total ? `${detailEv.files_done.toLocaleString()} / ${detailEv.files_total.toLocaleString()} files` : "";
+
+  document.getElementById("steps").innerHTML = tools.map(tool => {
+    const d = done[tool];
+    const running = st.status === "running" && !d && detailEv?.tool === tool;
+    const cls = d ? ((d.note||"").startsWith("error") ? "failed" :
+                    (d.note||"").startsWith("skipped") ? "skip" : "done")
+                  : running ? "running" : "pending";
+    const label = d ? ((d.note||"").startsWith("error") ? "failed"
+                     : (d.note||"").startsWith("skipped") ? "skipped" : "completed")
+                    : running ? "running" : "pending";
+    const note = d && (d.note||"").startsWith("error") ? d.note.slice(0,110) : "";
+    const info = d ? `${d.count} issues` : running && detailEv ? detailEv.detail : "";
+    return `<div class="step"><span class="st ${cls}"></span>
+      <strong style="font-weight:500">${esc(tool)}</strong>
+      <span style="color:var(--muted)">${label}</span>
+      ${note ? `<span class="err">${esc(note)}</span>` : ""}
+      <span class="detail">${esc(info)}</span></div>`;
+  }).join("");
+
+  if (st.status === "running") {
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(pollProgress, 1500);
+  } else {
+    clearTimeout(state.timer);
+    document.getElementById("btn-browse").disabled = false;
+    if (st.status === "done" && st.scan_id) loadScans().then(() => loadScan(st.scan_id));
+  }
+}
+
+function pollProgress() {
+  fetch(`${API}/api/progress`).then(r => r.json()).then(renderProgress)
+    .catch(() => { state.timer = setTimeout(pollProgress, 2500); });
+}
+
+// ---------------------------------------------------------------- scans ----
+async function loadScans() {
+  const scans = await (await fetch(`${API}/api/scans`)).json();
+  document.getElementById("scan-list").innerHTML = scans.slice(0, 12).map(s => `
+    <a href="#" data-id="${esc(s.id)}" style="display:block">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>${esc(s.id)}</span>
+      <span class="count">${s.total}</span>
+    </a>`).join("");
+  document.querySelectorAll("#scan-list a").forEach(a =>
+    a.addEventListener("click", e => { e.preventDefault(); loadScan(a.dataset.id); }));
+}
+
+async function loadRepos() {
+  const repos = await (await fetch(`${API}/api/repos`)).json();
+  document.getElementById("repo-list").innerHTML = repos.map(r => `
+    <div class="repo-item" data-path="${esc(r.path)}" data-last-scan="${esc(r.last_scan_id)}" title="${esc(r.path)}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span>${esc(r.name)}</span>
+      <span class="cnt">${r.last_total}</span>
+      <span class="rescan" title="Rescan ${esc(r.name)}" data-rescan="${esc(r.path)}">⟳</span>
+    </div>`).join("");
+  document.querySelectorAll(".repo-item").forEach(el => {
+    el.addEventListener("click", e => {
+      if (e.target.classList.contains("rescan")) {
+        launch(e.target.dataset.rescan);
+        return;
+      }
+      const last = r_lastScanId(el.dataset.path);
+      if (last) loadScan(last);
+    });
+  });
+}
+function r_lastScanId(path) {
+  const el = document.querySelector(`.repo-item[data-path="${CSS.escape(path)}"]`);
+  return el ? el.dataset.lastScan : null;
+}
+async function loadScan(scanId) {
+  const view = await (await fetch(`${API}/api/scan/${scanId}/view`)).json();
+  if (view.error) return;
+  state.view = view;
+  state.target = view.target;
+  state.scanId = scanId;
+  state.grouped = true;
+  document.querySelectorAll("#scan-list a").forEach(a =>
+    a.classList.toggle("active", a.dataset.id === scanId));
+  document.getElementById("sb-target").textContent = short(view.target) || "No scan";
+  document.getElementById("page-title").textContent = short(view.target) || "Issues";
+  document.getElementById("results").style.display = "block";
+  document.getElementById("empty").style.display = "none";
+  render();
+  state.planText = await (await fetch(`${API}/api/scan/${scanId}/plan.md`)).text();
+  document.getElementById("plan-view").textContent = state.planText;
+  for (const id of ["btn-copy","btn-md","btn-report"]) document.getElementById(id).disabled = false;
+  document.getElementById("btn-report").onclick = () =>
+    window.open(`${API}/api/scan/${scanId}/REPORT.html`, "_blank");
+}
+
+// ---------------------------------------------------------------- render ---
+function visibleFindings() {
+  const v = state.view;
+  return state.grouped ? v.findings : v.findings.flatMap(g => g.members);
+}
+
+function render() {
+  const v = state.view;
+  const findings = visibleFindings();
+
+  // severity stats (open issues only, Aikido-style)
+  const counts = Object.fromEntries(SEV.map(x => [x, 0]));
+  let open = 0;
+  for (const f of findings) {
+    if (f.status === "solved" || f.status === "ignored") continue;
+    counts[f.severity] = (counts[f.severity] || 0) + 1;
+    open++;
+  }
+  document.getElementById("stats").innerHTML = SEV.map(sev => `
+    <div class="stat ${sev.toLowerCase()}">
+      <div class="num">${counts[sev]}</div>
+      <div class="lbl">${SEV_L[sev]}</div>
+    </div>`).join("")
+    + `<div class="stat"><div class="num">${open}</div><div class="lbl">Open of ${findings.length}</div></div>`;
+
+  // activity strip
+  const a = v.activity || {};
+  document.getElementById("activity").innerHTML = `
+    <div class="item"><div class="num">${a.new || 0}</div><div class="lbl">New</div><div class="sub">in last 7 days</div></div>
+    <div class="item"><div class="num">${a.solved || 0}</div><div class="lbl">Solved</div><div class="sub">in last 7 days</div></div>
+    <div class="item"><div class="num">${a.ignored || 0}</div><div class="lbl">Ignored</div><div class="sub">in last 7 days</div></div>`;
+
+  // config errors card
+  const ce = v.config_errors || [];
+  document.getElementById("config-card").innerHTML = ce.length ? `
+    <div class="cfg">
+      <h3>Configuration errors (${ce.length})</h3>
+      ${ce.map(e => `<div class="cfg-item">
+        <span class="sev ${e.severity.toLowerCase()}"><span class="dot"></span>${SEV_L[e.severity]}</span>
+        <div><strong>${esc(e.title)}</strong><br><span style="color:var(--muted)">${esc(e.detail)}</span></div>
+      </div>`).join("")}
+    </div>` : "";
+
+  const sel = document.getElementById("f-tool");
+  sel.innerHTML = '<option value="">All tools</option>' +
+    [...new Set(findings.map(f => f.tool))].sort().map(t => `<option>${esc(t)}</option>`).join("");
+  renderTable();
+}
+
+function riskPill(score) {
+  const s = score ?? 0;
+  const cls = s >= 90 ? "r90" : s >= 70 ? "r70" : s >= 50 ? "r50" : s >= 30 ? "r30" : "r0";
+  return `<span class="risk ${cls}" title="Risk score">${s}</span>`;
+}
+
+function renderTable() {
+  const findings = visibleFindings();
+  const q = document.getElementById("search").value.toLowerCase();
+  const fs = document.getElementById("f-sev").value;
+  const fc = document.getElementById("f-cat").value;
+  const ft = document.getElementById("f-tool").value;
+  const fst = document.getElementById("f-status").value;
+  const rows = [];
+  let n = 0;
+  for (const f of findings) {
+    if (fs && f.severity !== fs) continue;
+    if (fc && f.category !== fc) continue;
+    if (ft && !f.tool.includes(ft)) continue;
+    if (fst && f.status !== fst) continue;
+    if (q && !`${f.title} ${f.description} ${f.file}`.toLowerCase().includes(q)) continue;
+    n++;
+    const stCls = { open: "", new: "new", ignored: "ignored", snoozed: "snoozed", solved: "solved" }[f.status] || "";
+    const sevBits = [];
+    if (f.cvss != null) sevBits.push(`CVSS ${f.cvss}`);
+    if (f.cwe) sevBits.push(f.cwe);
+    rows.push(`
+      <tr data-n="${n}">
+        <td><span class="sev ${f.severity.toLowerCase()}"><span class="dot"></span>${SEV_L[f.severity]}</span></td>
+        <td><div class="issue-title">${esc(f.title)}</div>
+            <div class="issue-sub"><span class="tag">${CAT_L[f.category] || esc(f.category)}</span><span class="tag">${esc(f.tool)}</span>
+            ${f.group_size > 1 ? `<span class="tag">${f.group_size} issues</span>` : ""}
+            ${sevBits.length ? `<span class="tag">${esc(sevBits.join(" · "))}</span>` : ""}</div></td>
+        <td>${riskPill(f.risk_score)}</td>
+        <td>${esc(f.fix_time || "—")}</td>
+        <td><span class="status ${stCls}">${f.status}</span></td>
+        <td>
+          <div class="acts">
+            <button class="act autofix" data-act="autofix" data-n="${n}">AutoFix</button>
+            ${f.status === "solved"
+              ? `<button class="act" data-act="unsolve" data-n="${n}">Reopen</button>`
+              : `<button class="act" data-act="solve" data-n="${n}">Solved</button>`}
+            ${f.status === "ignored"
+              ? `<button class="act" data-act="unignore" data-n="${n}">Unignore</button>`
+              : `<button class="act" data-act="ignore" data-n="${n}">Ignore</button>`}
+            <button class="act" data-act="severity" data-n="${n}">Severity</button>
+            <button class="act gh" data-act="gh-issue" data-n="${n}" title="Create GitHub issue">Issue</button>
+            <button class="act gh" data-act="gh-pr" data-n="${n}" title="Open fix PR via gh CLI">Fix PR</button>
+          </div>
+        </td>
+      </tr>
+      <tr class="detail-row" style="display:none">
+        <td colspan="6">
+          <div style="margin-bottom:10px"><strong>What:</strong> ${esc(f.description || "-")}</div>
+          <div style="margin-bottom:10px"><strong>How to fix:</strong> ${esc(f.remediation_hint || "-")}</div>
+          <div class="meta">
+            ${f.cvss != null ? `<span class="chip"><b>CVSS:</b> ${esc(f.cvss)}/10</span>` : ""}
+            ${f.cwe ? `<span class="chip"><b>CWE:</b> ${esc(f.cwe)}</span>` : ""}
+            ${f.owasp ? `<span class="chip"><b>OWASP:</b> ${esc(f.owasp)}</span>` : ""}
+            ${f.package ? `<span class="chip"><b>Package:</b> ${esc(f.package)}</span>` : ""}
+            ${f.introduced_via && f.introduced_via.length ? `<span class="chip"><b>Introduced via:</b> ${esc(f.introduced_via.join(" → "))}</span>` : ""}
+            ${f.status === "ignored" && f.risk_accepted ? `<span class="chip acc"><b>Risk accepted</b></span>` : ""}
+            ${f.status === "ignored" && f.reason ? `<span class="chip"><b>Reason:</b> ${esc(f.reason)}</span>` : ""}
+          </div>
+          ${f.code_snippet ? `<pre class="snippet">${esc(f.code_snippet)}</pre>` : ""}
+          <div style="color:var(--muted);font-size:12px;margin-top:8px">Locations: ${esc(f.members ? f.members.map(m => locOf(m)).join(", ") : locOf(f))}</div>
+        </td>
+      </tr>`);
+  }
+  document.getElementById("tbody").innerHTML = rows.join("") ||
+    `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:34px">No issues match the filters.</td></tr>`;
+  bindRowEvents();
+}
+
+function bindRowEvents() {
+  document.querySelectorAll("tbody tr:not(.detail-row)").forEach(tr => {
+    tr.addEventListener("click", e => {
+      if (e.target.closest(".act")) return;
+      const d = tr.nextElementSibling;
+      d.style.display = d.style.display === "none" ? "" : "none";
+    });
+  });
+  document.querySelectorAll(".act").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const f = findingOf(+btn.dataset.n);
+      if (!f) return;
+      doAction(btn.dataset.act, f);
+    });
+  });
+}
+
+async function doAction(action, f) {
+  if (action === "autofix") {
+    const r = await fetch(`${API}/api/autofix`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ target: state.target, finding: f.members ? f.members[0] : f }),
+    });
+    const data = await r.json();
+    if (data.prompt) {
+      await navigator.clipboard.writeText(data.prompt);
+      toast("AutoFix prompt copied - paste into your AI agent");
+    }
+    return;
+  }
+  if (action === "ignore") { openIgnoreDialog(f); return; }
+  if (action === "severity") { openSeverityDialog(f); return; }
+  if (action === "gh-issue") {
+    const r = await fetch(`${API}/api/gh/issue`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ target: state.target, finding: f.members ? f.members[0] : f }),
+    });
+    const data = await r.json();
+    if (data.url) { toast("GitHub issue created"); window.open(data.url, "_blank"); }
+    else toast("gh error: " + (data.error || "unknown"));
+    return;
+  }
+  if (action === "gh-pr") {
+    toast("Creating fix branch + PR...");
+    const r = await fetch(`${API}/api/gh/pr`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ target: state.target, finding: f.members ? f.members[0] : f }),
+    });
+    const data = await r.json();
+    if (data.url) { toast("Fix PR opened"); window.open(data.url, "_blank"); }
+    else toast("gh error: " + (data.error || "unknown"));
+    return;
+  }
+  const days = action === "snooze" ? 7 : undefined;
+  await fetch(`${API}/api/action`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ target: state.target, finding: f.members ? f.members[0] : f, action, days }),
+  });
+  toast(action === "solve" ? "Marked as solved" : action === "unignore" ? "Issue restored" : "Updated");
+  loadScan(state.scanId); // refresh statuses
+}
+
+// ------------------------------------------------------------ dialogs ----
+function findingOf(n) { return visibleFindings()[n - 1]; }
+function rawOf(f) { return f.members ? f.members[0] : f; }
+
+function openIgnoreDialog(f) {
+  const dlg = document.getElementById("dlg-ignore");
+  dlg.querySelector("#ig-title").textContent = f.title.slice(0, 110);
+  dlg.querySelector("#ig-reason").value = "";
+  dlg.querySelector("#ig-risk").checked = false;
+  dlg.dataset.n = rowIndex(f);
+  dlg.showModal();
+}
+function rowIndex(f) {
+  // visibleFindings() order matches render order
+  return visibleFindings().indexOf(f) + 1;
+}
+
+function openSeverityDialog(f) {
+  const dlg = document.getElementById("dlg-sev");
+  dlg.querySelector("#sv-select-label").textContent = f.title.slice(0, 110);
+  dlg.querySelector("#sv-select").value = f.severity;
+  dlg.dataset.n = rowIndex(f);
+  dlg.showModal();
+}
+
+async function submitIgnore() {
+  const dlg = document.getElementById("dlg-ignore");
+  const f = findingOf(+dlg.dataset.n);
+  await fetch(`${API}/api/action`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      target: state.target, finding: rawOf(f), action: "ignore",
+      reason: dlg.querySelector("#ig-reason").value.trim(),
+      risk_accepted: dlg.querySelector("#ig-risk").checked,
+    }),
+  });
+  dlg.close();
+  toast("Issue ignored");
+  loadScan(state.scanId);
+}
+
+async function submitSeverity() {
+  const dlg = document.getElementById("dlg-sev");
+  const f = findingOf(+dlg.dataset.n);
+  await fetch(`${API}/api/action`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      target: state.target, finding: rawOf(f), action: "severity",
+      severity: dlg.querySelector("#sv-select").value,
+    }),
+  });
+  dlg.close();
+  toast("Severity updated");
+  loadScan(state.scanId);
+}
+
+["search","f-sev","f-cat","f-tool","f-status"].forEach(id =>
+  document.getElementById(id).addEventListener("input", renderTable));
+
+document.getElementById("v-grouped").addEventListener("click", () => {
+  state.grouped = true;
+  document.getElementById("v-grouped").classList.add("active");
+  document.getElementById("v-individual").classList.remove("active");
+  renderTable();
+});
+document.getElementById("v-individual").addEventListener("click", () => {
+  state.grouped = false;
+  document.getElementById("v-individual").classList.add("active");
+  document.getElementById("v-grouped").classList.remove("active");
+  renderTable();
+});
+
+// --------------------------------------------------------------- actions ---
+async function startScan(path, tools, dast) {
+  const r = await fetch(`${API}/api/scan`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ path, tools, dast }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) { toast("Could not start: " + (data.error || r.status)); return; }
+  document.getElementById("results").style.display = "none";
+  document.getElementById("btn-browse").disabled = true;
+  pollProgress();
+}
+
+function launch(path) {
+  const tools = [...new Set([...document.querySelectorAll(".setup input[type=checkbox]:checked")].map(c => c.value))];
+  const dast = document.getElementById("dast-url").value.trim();
+  return startScan(path, tools.length ? tools : null, dast || null);
+}
+
+document.getElementById("btn-browse").addEventListener("click", async () => {
+  const r = await fetch(`${API}/api/browse`, { method: "POST" });
+  const data = await r.json().catch(() => ({}));
+  if (data.error) { toast("Folder picker unavailable: " + data.error); return; }
+  if (data.path) launch(data.path);
+});
+
+document.getElementById("btn-run-path").addEventListener("click", () => {
+  const p = document.getElementById("manual-path").value.trim();
+  if (p) launch(p); else toast("Type a folder path first.");
+});
+
+function showResults() {
+  document.getElementById("setup").style.display = "none";
+}
+document.getElementById("btn-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(state.planText || "").then(() => toast("Fix plan copied - paste into your AI agent"));
+});
+document.getElementById("btn-md").addEventListener("click", () => {
+  const blob = new Blob([state.planText || ""], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `REMEDIATION_PLAN_${state.scanId || "latest"}.md`;
+  a.click();
+});
+function showSetup() {
+  document.getElementById("setup").style.display = "block";
+  window.scrollTo(0, 0);
+}
+loadScans();
+loadRepos();
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+version: 1
+rules:
+  # --- Secrets ---
+  - id: gatekeeper.aws-access-key
+    patterns:
+      - pattern: $KEY = "$VALUE"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i).*aws.*(access|secret).*
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: (?i)AKIA[0-9A-Z]{16}|(?i)aws_secret.*
+    message: Possible AWS credential hardcoded
+    languages: [python, javascript, typescript, go, ruby, java, kotlin]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-798"
+
+  - id: gatekeeper.private-key
+    patterns:
+      - pattern-regex: "-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"
+    message: Private key committed to source
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-321"
+
+  - id: gatekeeper.generic-secret-assignment
+    patterns:
+      - pattern: $SECRET = $VALUE
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: (?i).*(password|passwd|api_?key|secret|token|access_?key).*
+    message: Possible hardcoded secret - use environment variables or a secrets manager
+    languages: [python, javascript, typescript, go]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-798"
+
+  # --- Injection ---
+  - id: gatekeeper.sql-injection-fstring
+    patterns:
+      - pattern: $CURSOR.execute(f"...{$VAR}...")
+    message: Possible SQL injection via f-string interpolation
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89"
+
+  - id: gatekeeper.sql-injection-format
+    patterns:
+      - pattern-either:
+          - pattern: $CURSOR.execute("..." % $X)
+          - pattern: $CURSOR.execute("...".format(...))
+          - pattern: $CURSOR.execute("..." + $X)
+    message: Possible SQL injection via string formatting
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89"
+
+  - id: gatekeeper.command-injection-shell-true
+    pattern: subprocess.$FUNC(..., shell=True)
+    message: subprocess with shell=True enables command injection
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+
+  - id: gatekeeper.os-system
+    pattern: os.system($CMD)
+    message: os.system with variable input enables command injection
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+
+  - id: gatekeeper.eval-use
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: exec($X)
+      - pattern-not: ast.literal_eval(...)
+    message: eval/exec on untrusted input enables code execution
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+
+  # --- Crypto ---
+  - id: gatekeeper.weak-hash
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+    message: Weak hash algorithm (MD5/SHA-1) - use SHA-256 or better
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327"
+
+  - id: gatekeeper.insecure-random
+    pattern-either:
+      - pattern: random.random()
+      - pattern: random.randint($A, $B)
+      - pattern: random.choice($X)
+    message: Use the secrets module for security-sensitive randomness
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-330"
+
+  # --- Web ---
+  - id: gatekeeper.flask-debug-true
+    pattern: app.run(..., debug=True)
+    message: Flask debug mode enabled in code - leaks stack traces and enables the debugger
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-489"
+
+  - id: gatekeeper.verify-false
+    pattern: $REQ.$METHOD(..., verify=False, ...)
+    message: TLS certificate verification disabled
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-295"
+
+  - id: gatekeeper.js-eval
+    pattern: eval($X)
+    message: eval() on untrusted input enables code injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+
+  - id: gatekeeper.js-dangerous-html
+    pattern: $EL.innerHTML = $X
+    message: Assigning untrusted data to innerHTML enables XSS
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-79"
+
+  # --- Path traversal ---
+  - id: gatekeeper.open-join-unvalidated
+    patterns:
+      - pattern: open(os.path.join($BASE, $USER_INPUT))
+      - pattern-not: open(os.path.realpath(...))
+    message: Opening files joined from unvalidated input - possible path traversal
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-22"

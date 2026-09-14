@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gatekeeper-security"
+version = "1.0.0"
+description = "Free, open-source alternative to commercial AppSec platforms: unified SAST, SCA, secrets, IaC and DAST scanning with risk scoring and AI-executable remediation plans."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Samuel Bacaro" }]
+keywords = [
+    "security", "sast", "sca", "secrets", "iac", "dast", "appsec",
+    "semgrep", "trivy", "gitleaks", "vulnerability", "scanner",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/samuelbacaro/gatekeeper"
+Documentation = "https://github.com/samuelbacaro/gatekeeper#readme"
+Issues = "https://github.com/samuelbacaro/gatekeeper/issues"
+Changelog = "https://github.com/samuelbacaro/gatekeeper/blob/main/CHANGELOG.md"
+
+[project.scripts]
+gatekeeper = "gatekeeper.core.cli:main"
+gatekeeper-ui = "gatekeeper.ui.server:main"
+
+[tool.setuptools.packages.find]
+include = ["gatekeeper*"]
+
+[tool.setuptools.package-data]
+gatekeeper = ["rules/*.yaml", "ui/static/*.html"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]

@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""Gatekeeper - unified security scanner for web, Python, Go and Docker/IaC projects.
+
+Usage:
+    gatekeeper scan <path> [--dast URL] [--tools t1,t2] [--output DIR]
+    gatekeeper verify <path> [--dast URL] [--tools t1,t2] [--output DIR]
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from gatekeeper.core.cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())

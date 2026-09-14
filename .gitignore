@@ -1,0 +1,35 @@
+# --- Gatekeeper scan outputs (never commit scan results: they may contain
+# --- snippets of the scanned code and secret context)
+reports/
+.gatekeeper-state.json
+
+# --- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+.venv/
+venv/
+.python-version
+
+# --- Testing / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# --- Local env / secrets (defense in depth; gitleaks also watches these)
+.env
+.env.*
+!.env.example
