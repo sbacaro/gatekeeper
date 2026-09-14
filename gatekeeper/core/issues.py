@@ -118,7 +118,6 @@ def annotate_findings(target, findings: list) -> list:
         key = issue_key(f, target)
         seen_keys.add(key)
         entry = issues.get(key, {})
-        prev_status = entry.get("status")
 
         sev = entry.get("severity_override") or f.get("severity")
         item = dict(f)
@@ -242,7 +241,9 @@ def group_findings(annotated: list) -> list:
         if len(items) > 1:
             files = sorted({i.get("file") for i in items if i.get("file")})
             if len(files) > 1:
-                group["title"] = f"{primary['title']} (+{len(items)-1} similar in {len(files)} files)"
+                group["title"] = (
+                    f"{primary['title']} (+{len(items)-1} similar in {len(files)} files)"
+                )
             else:
                 group["title"] = f"{primary['title']} (+{len(items)-1} similar)"
         group["group_size"] = len(items)
@@ -299,8 +300,9 @@ def config_errors(target) -> list:
     if manifest and not lockfile:
         errors.append({
             "title": "Missing lockfile",
-            "detail": "A dependency manifest exists but no lockfile was found. "
-                      "Without a lockfile, dependency CVE scans are incomplete and builds are not reproducible.",
+            "detail": "A dependency manifest exists but no lockfile was found. Without "
+                      "a lockfile, dependency CVE scans are incomplete and builds are "
+                      "not reproducible.",
             "severity": "MEDIUM",
         })
 
@@ -312,8 +314,8 @@ def config_errors(target) -> list:
             if not ignored:
                 errors.append({
                     "title": f"{env_name} not gitignored",
-                    "detail": f"{env_name} exists and is not listed in .gitignore. "
-                              "Environment files usually contain credentials and must never be committed.",
+                    "detail": f"{env_name} exists and is not listed in .gitignore. Environment "
+                              "files usually contain credentials and must never be committed.",
                     "severity": "HIGH",
                 })
 
@@ -324,8 +326,8 @@ def config_errors(target) -> list:
         if not gitleaks_hook:
             errors.append({
                 "title": "No pre-commit secret scanning",
-                "detail": "The repository has no pre-commit hook for secret detection. "
-                          "Install gitleaks protect or a pre-commit hook to block leaks before commit.",
+                "detail": "The repository has no pre-commit hook for secret detection. Install "
+                          "gitleaks protect or a pre-commit hook to block leaks before commit.",
                 "severity": "LOW",
             })
 

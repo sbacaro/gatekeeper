@@ -42,8 +42,21 @@ jobs:
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
           pipx install semgrep
       - name: Run scan on sample app
+        # The sample app is intentionally vulnerable: exit code 1 means the
+        # scanners worked and found HIGH findings. Anything else is a failure.
         run: |
           python bin/gatekeeper scan ./sample-vulnerable-app --tools semgrep,gitleaks,syft,grype --output /tmp/gk-reports
+          code=$?
+          if [ "$code" -eq 1 ]; then
+            echo "Scan found HIGH findings as expected (exit 1)"
+            exit 0
+          elif [ "$code" -eq 0 ]; then
+            echo "::error::Scan exited 0 but the vulnerable sample app must produce HIGH findings"
+            exit 1
+          else
+            echo "::error::Scan failed with exit code $code"
+            exit 1
+          fi
       - name: Verify report artifacts
         run: |
           ls /tmp/gk-reports/*/summary.json /tmp/gk-reports/*/REPORT.md /tmp/gk-reports/*/REMEDIATION_PLAN.md

@@ -42,7 +42,8 @@ def report_markdown(result: dict) -> str:
         "",
         f"Generated: {result['timestamp']}",
         "",
-        f"**Stacks detected:** {', '.join(k for k, v in result['stacks'].items() if v and k != 'code') or 'none'}",
+        f"**Stacks detected:** "
+        f"{', '.join(k for k, v in result['stacks'].items() if v and k != 'code') or 'none'}",
         f"**Tools run:** {', '.join(result['tools_run']) or 'none'}",
         f"**Tools skipped:** {', '.join(result['tools_skipped']) or 'none'}",
         "",
@@ -98,7 +99,8 @@ def report_html(result: dict) -> str:
         rows.append(f"""
         <tr>
           <td>{i}</td>
-          <td><span class="badge" style="background:{color}">{html.escape(f['severity'])}</span></td>
+          <td><span class="badge" style="background:{color}">
+              {html.escape(f['severity'])}</span></td>
           <td>{html.escape(f['title'])}</td>
           <td>{html.escape(f['tool'])}<br><small>{html.escape(f['category'])}</small></td>
           <td><code>{html.escape(_location(f))}</code></td>
@@ -121,7 +123,8 @@ def report_html(result: dict) -> str:
   table {{ border-collapse: collapse; width: 100%; font-size: 14px; }}
   th, td {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }}
   th {{ background: #f3f4f6; }}
-  .badge {{ color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }}
+  .badge {{ color: white; padding: 2px 8px; border-radius: 4px;
+           font-weight: 600; font-size: 12px; }}
   .summary td {{ font-size: 20px; font-weight: 700; text-align: center; }}
   code {{ background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }}
 </style>
@@ -130,7 +133,8 @@ def report_html(result: dict) -> str:
 <h1>Gatekeeper Security Report</h1>
 <p><strong>Target:</strong> {html.escape(result['target'])} &middot;
    <strong>Generated:</strong> {html.escape(result['timestamp'])}</p>
-<p><strong>Stacks:</strong> {html.escape(', '.join(k for k, v in result['stacks'].items() if v and k != 'code') or 'none')} &middot;
+<p><strong>Stacks:</strong> {html.escape(', '.join(
+    k for k, v in result['stacks'].items() if v and k != 'code') or 'none')} &middot;
    <strong>Tools run:</strong> {html.escape(', '.join(result['tools_run']) or 'none')}</p>
 <h2>Summary ({len(findings)} findings)</h2>
 <table class="summary"><tr>

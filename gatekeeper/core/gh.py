@@ -3,7 +3,6 @@ open a fix PR (branch + commit) - Aikido-style 'real fix' actions.
 
 All commands run inside the scanned repository so gh picks up its remote.
 """
-import json
 import re
 import subprocess
 from pathlib import Path
@@ -20,9 +19,9 @@ def _run(cmd, cwd, timeout=120):
         proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                               timeout=timeout)
     except FileNotFoundError:
-        raise GhError("gh CLI not found (brew install gh)")
+        raise GhError("gh CLI not found (brew install gh)") from None
     except subprocess.TimeoutExpired:
-        raise GhError(f"gh timed out after {timeout}s")
+        raise GhError(f"gh timed out after {timeout}s") from None
     if proc.returncode != 0:
         msg = (proc.stderr or proc.stdout or "").strip().splitlines()
         raise GhError(msg[-1][:200] if msg else f"gh exited {proc.returncode}")
@@ -45,7 +44,8 @@ def repo_slug(target) -> str:
 
 def _finding_body(f: dict, target: str) -> str:
     lines = [
-        f"**Severity:** {f.get('severity', '?')}  |  **Risk score:** {f.get('risk_score', '?')}/100",
+        f"**Severity:** {f.get('severity', '?')}  |  "
+        f"**Risk score:** {f.get('risk_score', '?')}/100",
         f"**Tool:** {f.get('tool', '?')} ({f.get('category', '?')})",
         f"**Location:** `{f.get('file', 'n/a')}"
         + (f":{f.get('line')}" if f.get('line') else "") + "`",

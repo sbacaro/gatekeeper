@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gatekeeper.core.detect import detect_stacks, inventory
-from gatekeeper.scanners.scanners import TOOL_RUNNERS
 from gatekeeper.core.normalize import build_scan_result
-from gatekeeper.core.report import write_reports
 from gatekeeper.core.remediation import write_remediation
+from gatekeeper.core.report import write_reports
 from gatekeeper.core.snippets import code_snippet
+from gatekeeper.scanners.scanners import TOOL_RUNNERS
 
 GATEKEEPER_ROOT = Path(__file__).resolve().parent.parent.parent
 

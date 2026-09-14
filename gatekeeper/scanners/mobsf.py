@@ -5,14 +5,13 @@ Requires Docker; the MobSF container is started on demand and removed after.
 """
 import io
 import json
+import os
 import shutil
+import subprocess
 import tarfile
 import time
 import uuid
 from pathlib import Path
-
-import os
-import subprocess
 
 from gatekeeper.core.detect import SKIP_DIRS
 
@@ -82,8 +81,8 @@ def _api_headers() -> dict:
 
 
 def _post(url: str, headers: dict, data=None, files=None) -> dict:
-    import urllib.request
     import urllib.error
+    import urllib.request
     boundary = uuid.uuid4().hex
     body = io.BytesIO()
     for k, v in (data or {}).items():
@@ -107,9 +106,9 @@ def _post(url: str, headers: dict, data=None, files=None) -> dict:
         with urllib.request.urlopen(req, timeout=600) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
-        raise MobsfError(f"MobSF API error {exc.code}: {exc.read()[:200]}")
-    except json.JSONDecodeError:
-        raise MobsfError("MobSF returned invalid JSON")
+        raise MobsfError(f"MobSF API error {exc.code}: {exc.read()[:200]}") from exc
+    except json.JSONDecodeError as exc:
+        raise MobsfError("MobSF returned invalid JSON") from exc
 
 
 def run_mobsf(target, raw_dir, progress_cb=None, **_) -> tuple:
@@ -120,7 +119,7 @@ def run_mobsf(target, raw_dir, progress_cb=None, **_) -> tuple:
     if not _has_mobile_sources(target):
         return [], None
 
-    from scanners import _run, _parse_json, _save_raw  # reuse helpers
+    from scanners import _run, _save_raw  # reuse helpers
 
     name = _container_name()
     up, _ = _run(["docker", "run", "-d", "--rm",

@@ -6,7 +6,7 @@ need to discover git state, file existence or verification mechanics itself.
 """
 from pathlib import Path
 
-from gatekeeper.core.recon import secret_recon, format_secret_context
+from gatekeeper.core.recon import format_secret_context, secret_recon
 
 CATEGORY_DIRECTIVES = {
     "sca": (
@@ -16,7 +16,8 @@ CATEGORY_DIRECTIVES = {
     ),
     "sast": (
         "1. Read the flagged code and understand the vulnerability class.\n"
-        "2. Apply the secure pattern (sanitize/validate input, use parameterized APIs, add checks).\n"
+        "2. Apply the secure pattern (sanitize/validate input, use parameterized "
+        "APIs, add checks).\n"
         "3. Keep behavior intact; refactor minimally.\n"
         "4. Add or adjust a test covering the insecure case if a test suite exists."
     ),
@@ -32,7 +33,8 @@ CATEGORY_DIRECTIVES = {
     ),
 }
 
-SECRET_DIRECTIVES_PUSHED = """1. Rotate/revoke the credential at the provider FIRST (removal alone is not enough).
+SECRET_DIRECTIVES_PUSHED = """1. Rotate/revoke the credential at the provider FIRST
+(removal alone is not enough).
 2. If the file exists in the working tree: remove the secret from it and load
    the value from a build setting / environment variable / secrets manager
    instead. Do NOT hardcode a replacement value.
@@ -46,7 +48,8 @@ SECRET_DIRECTIVES_PUSHED = """1. Rotate/revoke the credential at the provider FI
 5. Tell the user to re-clone or `git pull --rebase` on every machine that has
    this repository, and to verify the new credential was never committed."""
 
-SECRET_DIRECTIVES_LOCAL = """1. Rotate/revoke the credential at the provider FIRST (removal alone is not enough).
+SECRET_DIRECTIVES_LOCAL = """1. Rotate/revoke the credential at the provider FIRST
+(removal alone is not enough).
 2. If the file exists in the working tree: remove the secret from it and load
    the value from a build setting / environment variable / secrets manager.
    If the file no longer exists, skip straight to step 3 - the fix is purely
@@ -59,7 +62,8 @@ SECRET_DIRECTIVES_LOCAL = """1. Rotate/revoke the credential at the provider FIR
 4. Do NOT push the branch until the history rewrite is done."""
 
 ACCEPTANCE_BY_CATEGORY = {
-    "secrets": "The secret no longer appears in source, git history or the gitleaks scan output; the credential has been rotated.",
+    "secrets": "The secret no longer appears in source, git history or the gitleaks "
+               "scan output; the credential has been rotated.",
     "sca": "The dependency is at (or above) the fixed version in the lockfile/manifest.",
     "sast": "The flagged pattern is gone and equivalent secure behavior is in place.",
     "iac": "The misconfiguration no longer appears in the config file.",

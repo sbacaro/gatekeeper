@@ -2,16 +2,15 @@
 into the scan directory and returns a list of normalized Finding objects.
 """
 import json
-import os
+import math
 import re
 import shutil
 import subprocess
-import time
 import uuid
 from pathlib import Path
 
-from gatekeeper.core.models import Finding
 from gatekeeper.core.detect import inventory
+from gatekeeper.core.models import Finding
 from gatekeeper.core.risk import cwe_of, owasp_of
 
 SKIP_DIRS = {
@@ -274,18 +273,6 @@ def run_gitleaks(target, raw_dir, progress_cb=None, **_):
                 seen.add(key)
                 all_leaks.append(leak)
 
-    def collect(rpt_path):
-        try:
-            leaks = json.loads(Path(rpt_path).read_text())
-        except (json.JSONDecodeError, OSError):
-            leaks = []
-        for leak in leaks:
-            key = (leak.get("RuleID"), leak.get("File"), leak.get("StartLine"),
-                   leak.get("Commit"))
-            if key not in seen:
-                seen.add(key)
-                all_leaks.append(leak)
-
     def run_one(cmd, rpt_path):
         code, _stdout, stderr = _run(cmd, timeout=900)
         if code == 127:
@@ -382,9 +369,6 @@ def _osv_severity(vuln: dict, fallback: str) -> str:
                 return "MEDIUM"
             return "LOW"
     return fallback
-
-
-import math
 
 
 def _roundup(x: float) -> float:
@@ -715,7 +699,7 @@ def run_guarddog(target, raw_dir, **_):
                 ln = ln.strip()
                 if not ln or ln.startswith(("#", "-")):
                     continue
-                name = re.split(r"[<>=~!\[; ]", ln, 1)[0].strip()
+                name = re.split(r"[<>=~!\[; ]", ln, maxsplit=1)[0].strip()
                 if name:
                     found_pkgs.append(("pypi", name))
         except OSError:

@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from gatekeeper.core.runner import run_scan, GATEKEEPER_ROOT
+from gatekeeper.core.runner import GATEKEEPER_ROOT, run_scan
 
 STACK_TOOL_MAP_FOR_DOCS = "auto-selected by detected stack"
 

@@ -1,5 +1,5 @@
 """Core data structures shared across Gatekeeper modules."""
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 SEVERITY_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
 

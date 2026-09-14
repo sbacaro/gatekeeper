@@ -5,7 +5,10 @@ from pathlib import Path
 SWIFT_MARKERS = {"Package.swift", "Podfile", "Cartfile", "Cartfile.resolved"}
 SWIFT_DIR_SUFFIXES = (".xcodeproj", ".xcworkspace")
 JS_MARKERS = {"package.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb"}
-PY_MARKERS = {"requirements.txt", "pyproject.toml", "setup.py", "setup.cfg", "Pipfile", "poetry.lock"}
+PY_MARKERS = {
+    "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
+    "Pipfile", "poetry.lock",
+}
 IAC_MARKERS = {"Dockerfile", "docker-compose.yml", "docker-compose.yaml"}
 IAC_SUFFIXES = (".tf", ".tfvars")
 GO_MARKERS = {"go.mod", "go.sum"}

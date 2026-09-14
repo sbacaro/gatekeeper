@@ -14,16 +14,15 @@ Security: binds to 127.0.0.1 only; only files inside reports/ are served.
 import json
 import re
 import subprocess
-import sys
 import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from gatekeeper.core.runner import run_scan, GATEKEEPER_ROOT
-import gatekeeper.core.issues
 import gatekeeper.core.gh as gh_mod
+from gatekeeper.core import issues
+from gatekeeper.core.runner import GATEKEEPER_ROOT, run_scan
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 REPORTS_ROOT = GATEKEEPER_ROOT / "reports"
@@ -48,9 +47,9 @@ def _progress_recorder(state):
         note = kw.get("note") or ""
         if event == "tool_done" and note.startswith("error"):
             # Keep the UI readable: last line of the traceback only.
-            lines = [l for l in note.splitlines() if l.strip()]
-            entry["note"] = next((l for l in reversed(lines)
-                                  if not l.startswith("  ") and "Traceback" not in l),
+            lines = [ln for ln in note.splitlines() if ln.strip()]
+            entry["note"] = next((ln for ln in reversed(lines)
+                                  if not ln.startswith("  ") and "Traceback" not in ln),
                                  lines[-1] if lines else "error")
         if event == "scan_done":
             entry["scan_dir"] = str(kw["scan_dir"])
@@ -336,24 +335,11 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"history": issues.issue_history(target, finding)})
 
     def _handle_browse(self):
-        # tkinter dialogs need the main thread of their own process.
-        script = (
-            "import tkinter as tk; from tkinter import filedialog;"
-            "root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True);"
-            "print(filedialog.askdirectory(title='Select the repository to scan') or '');"
-            "root.destroy()"
-        )
         try:
-            proc = subprocess.run(
-                [sys.executable, "-c", script],
-                capture_output=True, text=True, timeout=300,
-            )
-            chosen = ""
-            if not chosen:
-                chosen, err = self._browse_applescript()
-                if err:
-                    self._send_json({"path": "", "error": err})
-                    return
+            chosen, err = self._browse_applescript()
+            if err:
+                self._send_json({"path": "", "error": err})
+                return
             self._send_json({"path": chosen})
         except subprocess.TimeoutExpired:
             self._send_json({"path": "", "error": "folder picker timed out"}, 504)

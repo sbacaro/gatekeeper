@@ -26,7 +26,8 @@ def merge_findings(all_findings):
         if existing is None:
             by_key[key] = f
         else:
-            # Keep the more severe one; prefer the more specific tool (gitleaks over trivy for secrets)
+            # Keep the more severe one; prefer the more specific tool
+            # (gitleaks over trivy for secrets)
             if SEV_RANK.get(f.severity, 0) > SEV_RANK.get(existing.severity, 0):
                 merged = f
             else:
