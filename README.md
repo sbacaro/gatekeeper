@@ -1,6 +1,6 @@
 # Gatekeeper
 
-[![CI](https://github.com/samuelbacaro/gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/samuelbacaro/gatekeeper/actions/workflows/ci.yml)
+[![CI](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/sbacaro/gatekeeper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 
@@ -51,7 +51,7 @@ Tools are auto-selected based on the detected stack, or forced with `--tools`.
 
 ```bash
 # macOS / Homebrew
-git clone https://github.com/samuelbacaro/gatekeeper.git
+git clone https://github.com/sbacaro/gatekeeper.git
 cd gatekeeper
 ./install.sh        # installs missing scanners via brew, validates the set
 ```
@@ -160,7 +160,7 @@ sample-vulnerable-app/     Intentionally vulnerable demo app for testing scans
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and feature requests are
-welcome via [Issues](https://github.com/samuelbacaro/gatekeeper/issues).
+welcome via [Issues](https://github.com/sbacaro/gatekeeper/issues).
 
 ## Security
 

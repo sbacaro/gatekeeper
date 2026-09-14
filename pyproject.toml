@@ -32,10 +32,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/samuelbacaro/gatekeeper"
-Documentation = "https://github.com/samuelbacaro/gatekeeper#readme"
-Issues = "https://github.com/samuelbacaro/gatekeeper/issues"
-Changelog = "https://github.com/samuelbacaro/gatekeeper/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/sbacaro/gatekeeper"
+Documentation = "https://github.com/sbacaro/gatekeeper#readme"
+Issues = "https://github.com/sbacaro/gatekeeper/issues"
+Changelog = "https://github.com/sbacaro/gatekeeper/blob/main/CHANGELOG.md"
 
 [project.scripts]
 gatekeeper = "gatekeeper.core.cli:main"

@@ -12,7 +12,7 @@ Gatekeeper is a security tool - please hold it to the same standard.
 
 If you find a vulnerability in Gatekeeper itself, **do not open a public
 issue**. Email the maintainer directly or use
-[GitHub's private vulnerability reporting](https://github.com/samuelbacaro/gatekeeper/security/advisories/new).
+[GitHub's private vulnerability reporting](https://github.com/sbacaro/gatekeeper/security/advisories/new).
 
 Include:
 - A description of the issue and its impact.

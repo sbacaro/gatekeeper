@@ -6,7 +6,7 @@ a development environment and the conventions used in this repository.
 ## Development setup
 
 ```bash
-git clone https://github.com/samuelbacaro/gatekeeper.git
+git clone https://github.com/sbacaro/gatekeeper.git
 cd gatekeeper
 
 # System scanners (macOS)
@@ -49,6 +49,6 @@ sample-vulnerable-app/  Intentionally vulnerable demo app for testing scans
 
 ## Reporting bugs
 
-Open a [bug report](https://github.com/samuelbacaro/gatekeeper/issues/new?template=bug_report.md)
+Open a [bug report](https://github.com/sbacaro/gatekeeper/issues/new?template=bug_report.md)
 with the Gatekeeper version, the tools involved and the relevant snippet of
 `summary.json` (redact anything sensitive).
