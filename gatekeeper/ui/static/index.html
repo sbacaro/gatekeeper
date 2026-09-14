@@ -17,15 +17,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gatekeeper</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z' fill='%236551f3'/%3E%3Cpath d='M9 11.5l2.2 2.2L15.5 9' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 <style>
-  /* Aikido-inspired design system */
+  /* Aikido-inspired design system. Light theme is the default; dark theme
+     overrides the neutrals only (severity colors are shared). Toggled by
+     the moon/sun button in the topbar, persisted in localStorage. */
   :root {
     --bg: #f9f9f9; --card: #ffffff; --border: #e5e5e9; --border2: #ececef;
     --text: #1a1a2e; --muted: #73727f; --accent: #6551f3;
     --critical: #e5484d; --high: #f76b15; --medium: #ffb224;
     --low: #3b82f6; --info: #8f8fa3; --ok: #30a46c;
     --sidebar-bg: #141031; --cyan: #17dfdc;
+    --input-bg: #f4f4f6; --hover-bg: #fafafa; --row-border: #f4f4f6;
+    --chip-bg: #f1f1f4; --shadow: rgba(20,16,49,.08);
+    color-scheme: light;
   }
+  html[data-theme="dark"] {
+    --bg: #12121f; --card: #1b1b2c; --border: #2c2c40; --border2: #262637;
+    --text: #e8e8f2; --muted: #9494a8;
+    --low: #60a5fa; --info: #7c7c95;
+    --input-bg: #1d1d30; --hover-bg: #1e1e30; --row-border: #22223a;
+    --sidebar-bg: #0d0d1a;
+  }
+  html[data-theme="dark"] .meta .chip { background: #26263a; border-color: #32324a; }
+  html[data-theme="dark"] .license-tag, html[data-theme="dark"] .footer .license-tag,
+  html[data-theme="dark"] .tag { background: #26263a; }
+  html[data-theme="dark"] .cfg { background: #2a2313; border-color: #57430f; }
+  html[data-theme="dark"] .risk.r50 { color: #241a00; }
+  html[data-theme="dark"] .pbar { background: #26263a; }
+  html[data-theme="dark"] .st.pending { border-color: #3a3a50; }
+  html[data-theme="dark"] .st.skip { background: #3a3a50; }
+  html[data-theme="dark"] .risk.r0 { background: #3a3a50; color: var(--text); }
+  html[data-theme="dark"] tbody tr:hover { background: #1e1e30; }
+  html[data-theme="dark"] tr.detail-row td { background: #1e1e30; border-top-color: var(--border); }
+  html[data-theme="dark"] .footer .license-tag { background: #26263a; }
+  html[data-theme="dark"] dialog { background: var(--card); }
+  html[data-theme="dark"] .search, html[data-theme="dark"] .filter-search { background: var(--input-bg); }
   * { box-sizing: border-box; margin: 0; }
   body { background: var(--bg); color: var(--text);
          font-family: Inter, -apple-system, "Segoe UI", sans-serif; font-size: 13px;
@@ -63,13 +90,13 @@
             padding: 0 28px; height: 54px; display: flex; align-items: center; gap: 10px; }
   .topbar h1 { font-size: 15px; font-weight: 600; margin-right: 8px; }
   .topbar .divider { width: 1px; height: 22px; background: var(--border); }
-  .search { background: #f4f4f6; border: 1px solid transparent; border-radius: 8px;
+  .search { background: var(--input-bg); border: 1px solid transparent; border-radius: 8px;
             padding: 7px 14px; width: 240px; font-size: 13px; }
-  .search:focus { outline: none; background: #fff; border-color: var(--accent); }
+  .search:focus { outline: none; background: var(--card); border-color: var(--accent); }
   .btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
          border-radius: 8px; font-weight: 500; border: 1px solid var(--border);
          background: var(--card); color: var(--text); }
-  .btn:hover { background: #f4f4f6; }
+  .btn:hover { background: var(--input-bg); }
   .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   .btn.primary:hover { background: #5443d9; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -96,20 +123,20 @@
   .panel-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .filters select { background: var(--card); border: 1px solid var(--border);
                     border-radius: 7px; padding: 6px 10px; font-size: 12.5px; }
-  .filter-search { background: #f4f4f6; border: 1px solid transparent; border-radius: 7px;
+  .filter-search { background: var(--input-bg); border: 1px solid transparent; border-radius: 7px;
                    padding: 6px 12px; width: 200px; }
-  .filter-search:focus { outline: none; background: #fff; border-color: var(--accent); }
+  .filter-search:focus { outline: none; background: var(--card); border-color: var(--accent); }
 
   table { width: 100%; border-collapse: collapse; }
   th { text-align: left; font-size: 11.5px; font-weight: 500; color: var(--muted);
        padding: 9px 18px; border-bottom: 1px solid var(--border); }
-  td { padding: 12px 18px; border-bottom: 1px solid #f4f4f6; font-size: 13px; vertical-align: middle; }
+  td { padding: 12px 18px; border-bottom: 1px solid var(--row-border); font-size: 13px; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
   tbody tr { cursor: pointer; }
-  tbody tr:hover { background: #fafafa; }
+  tbody tr:hover { background: var(--hover-bg); }
   tr.detail-row { cursor: default; }
   tr.detail-row:hover { background: #f9f9f9; }
-  tr.detail-row td { background: #fafafa; border-top: 1px solid var(--border); }
+  tr.detail-row td { background: var(--hover-bg); border-top: 1px solid var(--border); }
   .issue-title { font-weight: 500; }
   .issue-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
   .sev { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
@@ -120,7 +147,7 @@
   .sev.low .dot { background: var(--low); } .sev.low { color: var(--low); }
   .sev.info .dot { background: var(--info); } .sev.info { color: var(--info); }
   .loc { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
-  .tag { display: inline-block; background: #f1f1f4; color: var(--muted); border-radius: 6px;
+  .tag { display: inline-block; background: var(--chip-bg, #f1f1f4); color: var(--muted); border-radius: 6px;
          padding: 2px 8px; font-size: 11px; margin-right: 4px; }
 
   /* progress */
@@ -129,7 +156,7 @@
   .scan-head { display: flex; justify-content: space-between; align-items: baseline; }
   .scan-head h2 { font-size: 15px; font-weight: 600; }
   .scan-head .repo { color: var(--muted); font-size: 12.5px; }
-  .pbar { background: #ececef; height: 6px; border-radius: 3px; margin: 14px 0 6px; overflow: hidden; }
+  .pbar { background: var(--border2); height: 6px; border-radius: 3px; margin: 14px 0 6px; overflow: hidden; }
   .pbar-fill { height: 100%; background: var(--accent); width: 0%; transition: width .4s ease; border-radius: 3px; }
   .prow { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
   .prow strong { color: var(--text); font-size: 14px; }
@@ -158,7 +185,7 @@
   .setup h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
   .setup p { color: var(--muted); margin-bottom: 18px; }
   .setup .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-  .setup input[type=text] { background: #f4f4f6; border: 1px solid var(--border);
+  .setup input[type=text] { background: var(--input-bg); border: 1px solid var(--border);
                             border-radius: 8px; padding: 8px 13px; }
   .setup input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
   .setup label { display: flex; align-items: center; gap: 6px; color: var(--muted);
@@ -198,7 +225,7 @@
 
   /* meta chips in detail row */
   .meta { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-  .meta .chip { background: #f1f1f4; border: 1px solid var(--border2);
+  .meta .chip { background: var(--chip-bg, #f1f1f4); border: 1px solid var(--border2);
                 border-radius: 6px; padding: 2px 9px; font-size: 11.5px;
                 color: var(--text); }
   .meta .chip.acc { background: #e8f7ef; border-color: #b5e3cc; color: #1d7a4c; }
@@ -213,7 +240,7 @@
   dialog .row { display: flex; gap: 8px; flex-direction: column; margin-bottom: 12px; }
   dialog input[type=text], dialog select, dialog textarea {
     width: 100%; border: 1px solid var(--border); border-radius: 7px;
-    padding: 7px 10px; font-size: 13px; background: #f4f4f6; }
+    padding: 7px 10px; font-size: 13px; background: var(--input-bg); }
   dialog textarea { min-height: 60px; resize: vertical; font-family: inherit; }
   dialog .btns { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -283,7 +310,7 @@
           padding: 22px; white-space: pre-wrap; font-family: ui-monospace, monospace;
           font-size: 12.5px; line-height: 1.65; max-height: 72vh; overflow: auto; }
   .empty { text-align: center; padding: 90px 20px; color: var(--muted); }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: #fff;
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff;
            padding: 11px 18px; border-radius: 8px; font-size: 13px; opacity: 0;
            transition: opacity .25s; pointer-events: none; z-index: 50; }
   .toast.show { opacity: 1; }
@@ -301,7 +328,7 @@
   .footer svg { width: 13px; height: 13px; }
   .footer .sep { color: var(--border); }
   .footer .ver { font-variant-numeric: tabular-nums; }
-  .footer .license-tag { background: #f1f1f4; border-radius: 6px; padding: 1px 8px;
+  .footer .license-tag { background: var(--chip-bg); border-radius: 6px; padding: 1px 8px;
                          font-size: 11px; }
   .footer .privacy { margin-left: auto; }
 </style>
@@ -326,6 +353,9 @@
            each with its scan history nested underneath. Single data source:
            GET /api/sidebar (repos + grouped scans). -->
       <div class="nav-group">Repositories</div>
+      <input type="text" id="repo-filter" placeholder="Filter repositories..."
+             autocomplete="off" spellcheck="false"
+             style="margin:0 10px 6px;background:rgba(249,249,249,.08);border:1px solid transparent;border-radius:7px;padding:5px 10px;font-size:12px;color:#f9f9f9;width:calc(100% - 20px)">
       <div id="repo-tree"></div>
       <div id="sidebar-empty" style="display:none;color:rgba(249,249,249,.4);font-size:12px;padding:6px 10px">
         No scans yet - start one above.
@@ -348,6 +378,11 @@
       <button class="btn primary" id="btn-rescan" disabled title="Run the same scan again on this repository">
         <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px"><path d="M20 12a8 8 0 11-2.34-5.66M20 4v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Re-scan</button>
+      <button class="btn" id="btn-csv" disabled title="Export the filtered issue list to CSV">Export CSV</button>
+      <button class="btn" id="btn-theme" title="Toggle dark mode" style="padding:7px 9px">
+        <svg id="theme-moon" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg id="theme-sun" viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;display:none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
     </div>
 
     <div class="content">
@@ -632,8 +667,9 @@ function sevDots(counts) {
 async function loadSidebar() {
   const repos = await (await fetch(`${API}/api/sidebar`)).json();
   const tree = document.getElementById("repo-tree");
-  document.getElementById("sidebar-empty").style.display =
-    repos.length ? "none" : "block";
+  const emptyEl = document.getElementById("sidebar-empty");
+  emptyEl.textContent = "No scans yet - start one above.";
+  emptyEl.style.display = repos.length ? "none" : "block";
 
   tree.innerHTML = repos.map((r, i) => {
     const scans = r.scans.map(s => `
@@ -694,6 +730,30 @@ function highlightSidebar(scanId) {
   }
 }
 
+// Sidebar filter: hide non-matching repo groups; auto-expand matching ones
+// while a query is active so results are immediately visible.
+function filterSidebar(query) {
+  const q = (query || "").trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll("#repo-tree .repo-group").forEach(group => {
+    const name = group.querySelector(".repo-head .name").textContent.toLowerCase();
+    const match = !q || name.includes(q);
+    group.style.display = match ? "" : "none";
+    if (match) visible++;
+    if (q && match) group.classList.add("open");
+  });
+  document.getElementById("sidebar-empty").style.display =
+    visible ? "none" : "block";
+  if (visible) {
+    document.getElementById("sidebar-empty").textContent = "";
+  } else if (q) {
+    document.getElementById("sidebar-empty").textContent = "No repositories match.";
+    document.getElementById("sidebar-empty").style.display = "block";
+  }
+}
+document.getElementById("repo-filter").addEventListener("input",
+  e => filterSidebar(e.target.value));
+
 // Back-compat shim: renderProgress() and doAction() refresh the sidebar via
 // loadScans(); keep that call working after the redesign.
 async function loadScans() { await loadSidebar(); }
@@ -713,7 +773,7 @@ async function loadScan(scanId) {
   render();
   state.planText = await (await fetch(`${API}/api/scan/${scanId}/plan.md`)).text();
   document.getElementById("plan-view").textContent = state.planText;
-  for (const id of ["btn-copy","btn-md","btn-report","btn-rescan"]) document.getElementById(id).disabled = false;
+  for (const id of ["btn-copy","btn-md","btn-report","btn-rescan","btn-csv"]) document.getElementById(id).disabled = false;
   document.getElementById("btn-report").onclick = () =>
     window.open(`${API}/api/scan/${scanId}/REPORT.html`, "_blank");
 }
@@ -1045,6 +1105,50 @@ function showSetup() {
   document.getElementById("setup").style.display = "block";
   window.scrollTo(0, 0);
 }
+// --------------------------------------------------------- theme toggle ----
+// Dark mode is a class-free swap: [data-theme="dark"] on <html> redirects the
+// CSS variables. Preference persists in localStorage; first visit follows the
+// OS preference (prefers-color-scheme).
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.getElementById("theme-moon").style.display = theme === "dark" ? "none" : "";
+  document.getElementById("theme-sun").style.display = theme === "dark" ? "" : "none";
+}
+(function initTheme() {
+  const saved = localStorage.getItem("gk-theme");
+  const theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  applyTheme(theme);
+})();
+document.getElementById("btn-theme").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("gk-theme", next);
+  applyTheme(next);
+});
+
+// ---------------------------------------------------------- CSV export ----
+// Exports the currently visible (filtered) findings, not the whole scan -
+// what you see is what you get.
+function csvCell(v) {
+  const s = String(v ?? "");
+  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+document.getElementById("btn-csv").addEventListener("click", () => {
+  const findings = visibleFindings();
+  if (!findings.length) { toast("Nothing to export - load a scan first"); return; }
+  const cols = ["severity","risk_score","category","tool","title","file","line",
+                "status","cvss","cwe","owasp","fix_time","description"];
+  const rows = [cols.join(",")];
+  for (const f of visibleFindings()) {
+    rows.push(cols.map(c => csvCell(f[c])).join(","));
+  }
+  const blob = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `gatekeeper_issues_${state.scanId || "latest"}.csv`;
+  a.click();
+  toast(`Exported ${findings.length} issues to CSV`);
+});
+
 // Boot: fetch version for the footer, then populate sidebar lists.
 async function loadVersion() {
   try {
