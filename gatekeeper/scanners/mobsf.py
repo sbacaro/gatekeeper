@@ -18,7 +18,7 @@ from gatekeeper.core.detect import SKIP_DIRS
 
 MOBSF_IMAGE = "opensecurity/mobile-security-framework-mobsf:latest"
 MOBSF_PORT = 18080
-API_KEY_ENV = "MOBSF_API_KEY"
+MOBSF_KEY_ENV = "MOBSF_GATEKEEPER_KEY"
 CONTAINER_PREFIX = "gatekeeper-mobsf"
 
 
@@ -73,10 +73,10 @@ def _wait_for_mobsf(port: int, timeout: int = 120) -> None:
 
 
 def _api_headers() -> dict:
-    key = os.environ.get(API_KEY_ENV, "")
+    key = os.environ.get(MOBSF_KEY_ENV, "")
     if not key:
         raise MobsfError(
-            f"Set {API_KEY_ENV} to the MobSF API key printed at container "
+            f"Set {MOBSF_KEY_ENV} to the MobSF API key printed at container "
             "startup (default install prints it on first boot).")
     return {"Authorization": key}
 
@@ -139,7 +139,7 @@ def run_mobsf(target, raw_dir, progress_cb=None, **_) -> tuple:
                         and len(ln.split()[-1]) >= 32), None)
         if not api_key:
             return [], "error: could not read MobSF API key from container logs"
-        os.environ.setdefault(API_KEY_ENV, api_key)
+        os.environ.setdefault(MOBSF_KEY_ENV, api_key)
         headers = _api_headers()
         base = f"http://127.0.0.1:{MOBSF_PORT}/api/v1"
 

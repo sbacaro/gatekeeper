@@ -26,13 +26,9 @@ rules:
       cwe: "CWE-321"
 
   - id: gatekeeper.generic-secret-assignment
-    patterns:
-      - pattern: $SECRET = $VALUE
-      - metavariable-regex:
-          metavariable: $SECRET
-          regex: (?i).*(password|passwd|api_?key|secret|token|access_?key).*
+    pattern-regex: (?i)(?:\b[A-Za-z0-9\-]*(?:[_\-]|^)(?:password|passwd|api_?key|secret|token|access_?key|key)[A-Za-z0-9_\-]*\b\s*=\s*|["'][A-Za-z0-9_\-]*(?:password|passwd|api_?key|secret|token|access_?key|key)[A-Za-z0-9_\-]*["']\s*:\s*)["'](?!(?-i:[A-Z0-9_]{8,})["'])([^"'\n ]{8,})["']
     message: Possible hardcoded secret - use environment variables or a secrets manager
-    languages: [python, javascript, typescript, go]
+    languages: [python, javascript, typescript, go, ruby, java, kotlin]
     severity: ERROR
     metadata:
       cwe: "CWE-798"
