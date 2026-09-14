@@ -19,6 +19,7 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: Other/Proprietary License",
+    "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",

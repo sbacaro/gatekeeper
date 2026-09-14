@@ -49,23 +49,61 @@ Tools are auto-selected based on the detected stack, or forced with `--tools`.
 
 ## Install
 
+Gatekeeper runs on **macOS, Linux and Windows** (Python 3.9+ required; the
+scanners are the platform-specific part).
+
+### macOS
+
 ```bash
-# macOS / Homebrew
 git clone https://github.com/sbacaro/gatekeeper.git
 cd gatekeeper
-./install.sh        # installs missing scanners via brew, validates the set
+./install.sh        # installs missing scanners via Homebrew, validates the set
+```
+
+### Linux
+
+```bash
+git clone https://github.com/sbacaro/gatekeeper.git
+cd gatekeeper
+./install.sh        # detects your distro and prints per-tool instructions
+```
+
+Or install manually:
+
+```bash
+pip3 install semgrep checkov
+# trivy, gitleaks, osv-scanner, syft, grype, nuclei: use your package manager
+# or the official install scripts (./install.sh prints the exact commands).
+```
+
+For the web UI folder picker on Linux, install a picker backend:
+`sudo apt install zenity` (GNOME/any DE) or `kdialog` (KDE), or
+`sudo apt install python3-tk` for the tkinter fallback.
+
+### Windows
+
+```powershell
+git clone https://github.com/sbacaro/gatekeeper.git
+cd gatekeeper
+pip install semgrep checkov
+# trivy:    choco install trivy   |  scoop install trivy
+# gitleaks: choco install gitleaks |  scoop install gitleaks
+# osv-scanner, syft, grype, nuclei: download from their GitHub releases
+
+python bin\gatekeeper scan C:\path\to\project
+python bin\gatekeeper-ui
 ```
 
 <details>
-<summary>Manual installation</summary>
+<summary>macOS one-liner (manual)</summary>
 
 ```bash
 brew install semgrep trivy gitleaks osv-scanner checkov syft grype nuclei
 pip3 install guarddog   # optional: malicious package detection
 ```
+</details>
 
 Docker is only needed for the optional `--dast` (ZAP) and MobSF mobile scans.
-</details>
 
 ## Usage
 
@@ -97,7 +135,9 @@ Docker is only needed for the optional `--dast` (ZAP) and MobSF mobile scans.
 
 Opens a local dashboard at `http://127.0.0.1:8695` (localhost only, stdlib only):
 
-- **New Scan** button with a native macOS folder picker
+- **New Scan** button with a native folder picker (NSOpenPanel on macOS,
+  FolderBrowserDialog on Windows, zenity/kdialog on Linux)
+- **Re-scan** button to repeat the last scan on the same repository at any time
 - Live per-tool progress while scanning
 - Severity cards, charts by category/tool, filterable findings table ranked by
   risk score, with inline code snippets, CVSS/CWE/OWASP metadata

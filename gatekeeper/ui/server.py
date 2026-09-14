@@ -6,15 +6,17 @@ Serves the dashboard UI and a small JSON API:
   GET  /api/scans                     -> list of past scans
   GET  /api/scan/{id}/summary.json    -> unified findings for a scan
   GET  /api/scan/{id}/plan.md         -> AI directives text (REMEDIATION_PLAN.md)
-  POST /api/browse                    -> native macOS folder picker (tkinter)
+  POST /api/browse                    -> native OS folder picker
   POST /api/scan                      -> start a background scan
   GET  /api/progress                  -> status of the running scan
 
 Security: binds to 127.0.0.1 only; only files inside reports/ are served.
 """
 import json
+import os
 import re
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -339,21 +341,65 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"history": issues.issue_history(target, finding)})
 
     def _handle_browse(self):
+        """Open a native folder picker. Each OS has its own best mechanism;
+        try them in order and fall back to tkinter (bundled with most Python
+        distributions on Windows and macOS, packaged as python3-tk on Linux)."""
         try:
-            chosen, err = self._browse_applescript()
-            if err:
-                self._send_json({"path": "", "error": err})
-                return
-            self._send_json({"path": chosen})
+            if sys.platform == "darwin":
+                pickers = (self._browse_tkinter, self._browse_applescript)
+            elif os.name == "nt":
+                pickers = (self._browse_tkinter, self._browse_powershell)
+            else:
+                pickers = (self._browse_tkinter, self._browse_zenity)
+
+            last_err = "no folder picker available on this system"
+            for picker in pickers:
+                chosen, err = picker()
+                if err is None:
+                    self._send_json({"path": chosen})
+                    return
+                if err == "canceled":
+                    self._send_json({"path": ""})
+                    return
+                last_err = err
+            self._send_json({"path": "", "error": last_err})
         except subprocess.TimeoutExpired:
             self._send_json({"path": "", "error": "folder picker timed out"}, 504)
         except Exception as exc:
             self._send_json({"path": "", "error": str(exc)}, 500)
 
     @staticmethod
+    def _browse_tkinter():
+        """tkinter filedialog: works on macOS, Windows and Linux (if tk is
+        installed). Must run in a separate process - it needs the main thread,
+        and this HTTP server is already multithreaded."""
+        script = (
+            "import tkinter as tk\n"
+            "from tkinter import filedialog\n"
+            "root = tk.Tk()\n"
+            "root.withdraw()\n"
+            "root.attributes('-topmost', True)\n"
+            "print(filedialog.askdirectory(title='Select the repository to scan') or '')\n"
+            "root.destroy()\n"
+        )
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", script],
+                capture_output=True, text=True, timeout=300,
+            )
+            if proc.returncode == 0:
+                return proc.stdout.strip(), None
+            err = (proc.stderr or "").strip()
+            if "No module named" in err and "tkinter" in err:
+                return "", "tkinter not available"
+            return "", "tkinter picker failed"
+        except Exception as exc:
+            return "", str(exc)
+
+    @staticmethod
     def _browse_applescript():
-        """Native NSOpenPanel folder picker; works without tkinter.
-        Returns (path, error)."""
+        """macOS native NSOpenPanel via osascript; works without tkinter.
+        Returns (path, error); error == 'canceled' means user dismissed it."""
         script = (
             'set chosenFolder to choose folder with prompt '
             '"Select the repository to scan"\n'
@@ -369,11 +415,60 @@ class Handler(BaseHTTPRequestHandler):
             err = (proc.stderr or "").strip()
             # User pressed Cancel (-128) -> not an error, just empty path.
             if "-128" in err or "User canceled" in err:
-                return "", None
+                return "", "canceled"
             detail = err.splitlines()[-1][:120] if err else "osascript failed"
             return "", f"folder picker unavailable ({detail})"
         except Exception as exc:
             return "", str(exc)
+
+    @staticmethod
+    def _browse_powershell():
+        """Windows native folder dialog via PowerShell + WinForms.
+        Returns (path, error)."""
+        script = (
+            "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
+            "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            "$d.Description = 'Select the repository to scan'; "
+            "$d.ShowNewFolderButton = $false; "
+            "if ($d.ShowDialog() -eq 'OK') { Write-Output $d.SelectedPath }"
+        )
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True, text=True, timeout=300,
+            )
+            if proc.returncode == 0:
+                return proc.stdout.strip(), None
+            return "", "folder picker failed"
+        except FileNotFoundError:
+            return "", "powershell not available"
+        except Exception as exc:
+            return "", str(exc)
+
+    @staticmethod
+    def _browse_zenity():
+        """Linux folder picker via zenity (GTK) or kdialog (KDE).
+        Returns (path, error)."""
+        for cmd in (
+            ["zenity", "--file-selection", "--directory",
+             "--title=Select the repository to scan"],
+            ["kdialog", "--getexistingdirectory", str(Path.home()),
+             "--title", "Select the repository to scan"],
+        ):
+            try:
+                proc = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300,
+                )
+                if proc.returncode == 0:
+                    return proc.stdout.strip(), None
+                # zenity exits 1 on Cancel -> not an error
+                if proc.returncode == 1:
+                    return "", "canceled"
+            except FileNotFoundError:
+                continue  # try the next picker binary
+            except Exception as exc:
+                return "", str(exc)
+        return "", "no folder picker available (install zenity or kdialog)"
 
     def _handle_scan(self):
         body = self._read_json_body()
