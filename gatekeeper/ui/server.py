@@ -2,6 +2,7 @@
 
 Serves the dashboard UI and a small JSON API:
   GET  /                              -> static index.html
+  GET  /api/version                   -> package version + repo URL
   GET  /api/scans                     -> list of past scans
   GET  /api/scan/{id}/summary.json    -> unified findings for a scan
   GET  /api/scan/{id}/plan.md         -> AI directives text (REMEDIATION_PLAN.md)
@@ -21,6 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import gatekeeper.core.gh as gh_mod
+from gatekeeper import __version__
 from gatekeeper.core import issues
 from gatekeeper.core.runner import GATEKEEPER_ROOT, run_scan
 
@@ -186,6 +188,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/" or path == "/index.html":
             self._send_file(STATIC_DIR / "index.html", "text/html; charset=utf-8")
+        elif path == "/api/version":
+            self._send_json({"version": __version__, "repo": "https://github.com/sbacaro/gatekeeper"})
         elif path == "/api/scans":
             self._send_json(list_scans())
         elif path == "/api/progress":
