@@ -108,6 +108,15 @@ class TestConfigErrors:
         (tmp_path / "Package.resolved").write_text("{}")
         assert issues.config_errors(tmp_path) == []
 
+    def test_gitignored_lockfile_still_missing(self, tmp_path):
+        # A lockfile listed in .gitignore is not committed, so the "missing
+        # lockfile" warning must still fire.
+        (tmp_path / "Package.swift").write_text("// swift")
+        (tmp_path / "Package.resolved").write_text("{}")
+        (tmp_path / ".gitignore").write_text("Package.resolved\n")
+        errors = issues.config_errors(tmp_path)
+        assert any(e["title"] == "Missing lockfile" for e in errors)
+
     def test_no_pre_commit_noise(self, tmp_path):
         # A plain git repo without hooks must NOT generate any warning.
         (tmp_path / ".git").mkdir()

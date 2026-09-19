@@ -290,8 +290,19 @@ def config_errors(target) -> list:
     target = Path(target)
     errors = []
 
+    # A lockfile only counts if it is tracked (i.e. not listed in .gitignore):
+    # a gitignored lockfile is exactly the "missing lockfile" problem this
+    # check exists to catch, since builds on other machines lose it.
+    gitignore = target / ".gitignore"
+    ignored_lines = set()
+    if gitignore.exists():
+        try:
+            ignored_lines = {ln.strip() for ln in gitignore.read_text().splitlines() if ln.strip()}
+        except OSError:
+            ignored_lines = set()
+
     def has(*names):
-        return any((target / n).exists() for n in names)
+        return any((target / n).exists() and n not in ignored_lines for n in names)
 
     # Lockfile check. Swift's Package.resolved counts as a lockfile: without
     # this, every Swift package would report a false "missing lockfile".
@@ -311,19 +322,15 @@ def config_errors(target) -> list:
         })
 
     for env_name in (".env", ".env.local", ".env.production"):
-        env_path = target / env_name
-        if env_path.exists():
-            gitignore = target / ".gitignore"
-            ignored = gitignore.exists() and env_name in gitignore.read_text()
-            if not ignored:
-                errors.append({
-                    "title": f"{env_name} not gitignored",
-                    "detail": f"{env_name} exists and is not listed in .gitignore. Environment "
-                              "files usually contain credentials and must never be committed.",
-                    "severity": "HIGH",
-                    "hint": f'Add "{env_name}" to .gitignore and rotate '
-                            "any credentials it contains.",
-                })
+        if (target / env_name).exists() and env_name not in ignored_lines:
+            errors.append({
+                "title": f"{env_name} not gitignored",
+                "detail": f"{env_name} exists and is not listed in .gitignore. Environment "
+                          "files usually contain credentials and must never be committed.",
+                "severity": "HIGH",
+                "hint": f'Add "{env_name}" to .gitignore and rotate '
+                        "any credentials it contains.",
+            })
 
     return errors
 
