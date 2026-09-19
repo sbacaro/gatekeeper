@@ -285,25 +285,29 @@ def estimate_fix_time(f: dict) -> str:
 # ------------------------------------------------------- config errors -----
 
 def config_errors(target) -> list:
-    """Cheap heuristics for repository-level configuration problems
-    (shown separately from code issues)."""
+    """Cheap heuristics for repository-level hygiene problems that weaken the
+    scan itself (shown separately from code issues, before the results)."""
     target = Path(target)
     errors = []
 
     def has(*names):
         return any((target / n).exists() for n in names)
 
+    # Lockfile check. Swift's Package.resolved counts as a lockfile: without
+    # this, every Swift package would report a false "missing lockfile".
     manifest = has("package.json", "requirements.txt", "pyproject.toml",
                    "Package.swift", "go.mod", "pom.xml", "Cargo.toml")
     lockfile = has("package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-                   "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum")
+                   "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum",
+                   "Package.resolved")
     if manifest and not lockfile:
         errors.append({
             "title": "Missing lockfile",
-            "detail": "A dependency manifest exists but no lockfile was found. Without "
-                      "a lockfile, dependency CVE scans are incomplete and builds are "
-                      "not reproducible.",
+            "detail": "A dependency manifest exists but no lockfile was found. Commit a "
+                      "lockfile (package-lock.json, Cargo.lock, Package.resolved, ...) so "
+                      "dependency CVE scans are complete and builds are reproducible.",
             "severity": "MEDIUM",
+            "hint": "Commit your lockfile to git.",
         })
 
     for env_name in (".env", ".env.local", ".env.production"):
@@ -317,19 +321,9 @@ def config_errors(target) -> list:
                     "detail": f"{env_name} exists and is not listed in .gitignore. Environment "
                               "files usually contain credentials and must never be committed.",
                     "severity": "HIGH",
+                    "hint": f'Add "{env_name}" to .gitignore and rotate '
+                            "any credentials it contains.",
                 })
-
-    git_dir = target / ".git"
-    if git_dir.exists():
-        hooks = git_dir / "hooks"
-        gitleaks_hook = (hooks / "pre-commit").exists()
-        if not gitleaks_hook:
-            errors.append({
-                "title": "No pre-commit secret scanning",
-                "detail": "The repository has no pre-commit hook for secret detection. Install "
-                          "gitleaks protect or a pre-commit hook to block leaks before commit.",
-                "severity": "LOW",
-            })
 
     return errors
 

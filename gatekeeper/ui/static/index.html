@@ -337,6 +337,27 @@
           padding: 22px; white-space: pre-wrap; font-family: ui-monospace, monospace;
           font-size: 12.5px; line-height: 1.65; max-height: 72vh; overflow: auto; }
   .empty { text-align: center; padding: 90px 20px; color: var(--muted); }
+  /* All-clear state: shown instead of zeroed stats + empty table when a scan
+     finishes with no open findings. */
+  .allclear { text-align: center; padding: 70px 20px 60px; color: var(--muted); }
+  .allclear .shield { width: 64px; height: 64px; border-radius: 50%;
+                      background: var(--ok-chip-bg); display: inline-flex;
+                      align-items: center; justify-content: center; margin-bottom: 16px; }
+  .allclear h2 { font-size: 18px; color: var(--text); margin-bottom: 6px; }
+  .allclear p { max-width: 420px; margin: 0 auto 18px; }
+  /* Collapsed scan banner (replaces the full progress panel once done) */
+  .scan-done-banner { display: none; background: var(--card); border: 1px solid var(--border);
+                      border-radius: 10px; padding: 12px 18px; margin-bottom: 20px;
+                      align-items: center; gap: 10px; font-size: 13px; }
+  .scan-done-banner .st { background: var(--ok); width: 16px; height: 16px; border-radius: 50%;
+                          flex-shrink: 0; position: relative; }
+  .scan-done-banner .st::after { content: ""; position: absolute; left: 4.5px; top: 2.5px;
+                                 width: 4px; height: 8px; border-right: 1.8px solid var(--st-check);
+                                 border-bottom: 1.8px solid var(--st-check); transform: rotate(45deg); }
+  .scan-done-banner strong { font-weight: 600; }
+  .scan-done-banner .detail { color: var(--muted); }
+  .scan-done-banner .toggle { margin-left: auto; color: var(--accent); cursor: pointer;
+                              background: none; border: none; font-size: 12.5px; }
   .toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent);
            color: var(--on-accent);
            padding: 11px 18px; border-radius: 8px; font-size: 13px; opacity: 0;
@@ -440,6 +461,13 @@
         </div>
       </div>
 
+      <div class="scan-done-banner" id="scan-done-banner">
+        <span class="st"></span>
+        <strong>Scan complete</strong>
+        <span class="detail" id="scan-done-detail"></span>
+        <button class="toggle" id="btn-show-steps">Show details</button>
+      </div>
+
       <div class="scan-panel" id="progress">
         <div class="scan-head">
           <h2 id="scan-title">Scanning...</h2>
@@ -454,10 +482,17 @@
       </div>
 
       <div id="results" style="display:none">
+        <div class="allclear" id="allclear" style="display:none">
+          <div class="shield">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.5V11c0 5 3.4 9.4 8 10.5 4.6-1.1 8-5.5 8-10.5V5.5L12 2z" stroke="var(--ok)" stroke-width="1.6"/><path d="M9 11.5l2.2 2.2L15.5 9" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h2>All clear</h2>
+          <p id="allclear-sub">No security issues found in this repository.</p>
+        </div>
         <div class="activity" id="activity"></div>
         <div class="stats" id="stats"></div>
         <div id="config-card"></div>
-        <div class="panel">
+        <div class="panel" id="issues-panel">
           <div class="panel-head">
             <h2>Issues <span id="issues-total" style="color:var(--muted);font-weight:400"></span></h2>
             <div class="right">
@@ -661,9 +696,32 @@ function renderProgress(st) {
   } else {
     clearTimeout(state.timer);
     document.getElementById("btn-browse").disabled = false;
-    if (st.status === "done" && st.scan_id) loadScans().then(() => loadScan(st.scan_id));
+    if (st.status === "done" && st.scan_id) {
+      // Collapse the stepper into a one-line banner; loadScan() shows results.
+      collapseProgress(st);
+      loadScans().then(() => loadScan(st.scan_id));
+    }
   }
 }
+
+// Swap the full progress panel for a compact "Scan complete" banner.
+// "Show details" re-expands the stepper (with all per-tool results intact).
+function collapseProgress(st) {
+  const banner = document.getElementById("scan-done-banner");
+  document.getElementById("progress").style.display = "none";
+  banner.style.display = "flex";
+  const failed = st.events.filter(e => e.event === "tool_done"
+                                       && (e.note || "").startsWith("error")).length;
+  const total = st.total ?? "?";
+  document.getElementById("scan-done-detail").textContent =
+    `${total} issue${total === 1 ? "" : "s"} found` +
+    (failed ? ` - ${failed} tool${failed === 1 ? "" : "s"} failed` : "");
+}
+
+document.getElementById("btn-show-steps").addEventListener("click", () => {
+  document.getElementById("scan-done-banner").style.display = "none";
+  document.getElementById("progress").style.display = "block";
+});
 
 function pollProgress() {
   fetch(`${API}/api/progress`).then(r => r.json()).then(renderProgress)
@@ -826,6 +884,16 @@ function render() {
   const v = state.view;
   const findings = visibleFindings();
 
+  // All-clear: when the scan found nothing actionable, show a success state
+  // instead of zeroed stat cards, an empty activity strip and an empty table.
+  const openCount = findings.filter(f => f.status !== "solved" && f.status !== "ignored").length;
+  const allclear = document.getElementById("allclear");
+  document.getElementById("activity").style.display = openCount ? "" : "none";
+  document.getElementById("stats").style.display = openCount ? "" : "none";
+  document.getElementById("allclear-sub").textContent = openCount
+    ? "" : `No security issues found in ${short(v.target) || "this repository"}. The fix plan is empty and there is nothing to triage.`;
+  allclear.style.display = openCount ? "none" : "block";
+
   // severity stats (open issues only, commercial-platform-style)
   const counts = Object.fromEntries(SEV.map(x => [x, 0]));
   let open = 0;
@@ -848,20 +916,23 @@ function render() {
     <div class="item"><div class="num">${a.solved || 0}</div><div class="lbl">Solved</div><div class="sub">in last 7 days</div></div>
     <div class="item"><div class="num">${a.ignored || 0}</div><div class="lbl">Ignored</div><div class="sub">in last 7 days</div></div>`;
 
-  // config errors card
+  // repository hygiene card (shown above results, below stats)
   const ce = v.config_errors || [];
   document.getElementById("config-card").innerHTML = ce.length ? `
     <div class="cfg">
-      <h3>Configuration errors (${ce.length})</h3>
+      <h3>Repository hygiene (${ce.length})</h3>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:8px">Checks about how the repository is set up - they affect scan quality but are not code issues.</p>
       ${ce.map(e => `<div class="cfg-item">
         <span class="sev ${e.severity.toLowerCase()}"><span class="dot"></span>${SEV_L[e.severity]}</span>
-        <div><strong>${esc(e.title)}</strong><br><span style="color:var(--muted)">${esc(e.detail)}</span></div>
+        <div><strong>${esc(e.title)}</strong><br><span style="color:var(--muted)">${esc(e.detail)}</span>
+        ${e.hint ? `<br><span style="color:var(--muted);font-size:12px"><b>How to fix:</b> ${esc(e.hint)}</span>` : ""}</div>
       </div>`).join("")}
     </div>` : "";
 
   const sel = document.getElementById("f-tool");
   sel.innerHTML = '<option value="">All tools</option>' +
     [...new Set(findings.map(f => f.tool))].sort().map(t => `<option>${esc(t)}</option>`).join("");
+  document.getElementById("issues-panel").style.display = openCount ? "" : "none";
   renderTable();
 }
 

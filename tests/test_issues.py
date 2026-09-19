@@ -103,6 +103,18 @@ class TestConfigErrors:
         errors = issues.config_errors(tmp_path)
         assert any(e["title"] == "Missing lockfile" for e in errors)
 
+    def test_swift_resolved_counts_as_lockfile(self, tmp_path):
+        (tmp_path / "Package.swift").write_text("// swift")
+        (tmp_path / "Package.resolved").write_text("{}")
+        assert issues.config_errors(tmp_path) == []
+
+    def test_no_pre_commit_noise(self, tmp_path):
+        # A plain git repo without hooks must NOT generate any warning.
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "go.mod").write_text("module x")
+        (tmp_path / "go.sum").write_text("")
+        assert issues.config_errors(tmp_path) == []
+
     def test_env_not_gitignored(self, tmp_path):
         (tmp_path / ".env").write_text("X=1")
         errors = issues.config_errors(tmp_path)
